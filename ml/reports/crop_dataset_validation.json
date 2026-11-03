@@ -1,0 +1,135 @@
+{
+  "dataset_path": "C:\\Users\\pavani\\Downloads\\final_project-main\\final_project-main\\ml\\datasets\\crop\\crop_recommendation_clean.csv",
+  "expected_columns_in_order": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall",
+    "label"
+  ],
+  "actual_columns_in_order": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall",
+    "label"
+  ],
+  "schema_matches_exactly": true,
+  "missing_columns": [],
+  "unexpected_columns": [],
+  "row_count": 2200,
+  "schema_order_matches": true,
+  "missing_values_by_column": {
+    "N": 0,
+    "P": 0,
+    "K": 0,
+    "temperature": 0,
+    "humidity": 0,
+    "ph": 0,
+    "rainfall": 0,
+    "label": 0
+  },
+  "feature_missing_values_after_numeric_parse": {
+    "N": 0,
+    "P": 0,
+    "K": 0,
+    "temperature": 0,
+    "humidity": 0,
+    "ph": 0,
+    "rainfall": 0
+  },
+  "non_numeric_feature_values": {
+    "N": 0,
+    "P": 0,
+    "K": 0,
+    "temperature": 0,
+    "humidity": 0,
+    "ph": 0,
+    "rainfall": 0
+  },
+  "infinite_feature_values": {
+    "N": 0,
+    "P": 0,
+    "K": 0,
+    "temperature": 0,
+    "humidity": 0,
+    "ph": 0,
+    "rainfall": 0
+  },
+  "out_of_physical_domain_values": {
+    "N": 0,
+    "P": 0,
+    "K": 0,
+    "temperature": 0,
+    "humidity": 0,
+    "ph": 0,
+    "rainfall": 0
+  },
+  "empty_target_values": 0,
+  "exact_duplicate_rows": 0,
+  "duplicate_feature_groups": 0,
+  "duplicate_feature_groups_with_conflicting_labels": 0,
+  "class_count": 22,
+  "class_distribution": {
+    "apple": 100,
+    "banana": 100,
+    "blackgram": 100,
+    "chickpea": 100,
+    "coconut": 100,
+    "coffee": 100,
+    "cotton": 100,
+    "grapes": 100,
+    "jute": 100,
+    "kidneybeans": 100,
+    "lentil": 100,
+    "maize": 100,
+    "mango": 100,
+    "mothbeans": 100,
+    "mungbean": 100,
+    "muskmelon": 100,
+    "orange": 100,
+    "papaya": 100,
+    "pigeonpeas": 100,
+    "pomegranate": 100,
+    "rice": 100,
+    "watermelon": 100
+  },
+  "feature_ranges": {
+    "N": {
+      "min": 0.0,
+      "max": 140.0
+    },
+    "P": {
+      "min": 5.0,
+      "max": 145.0
+    },
+    "K": {
+      "min": 5.0,
+      "max": 205.0
+    },
+    "temperature": {
+      "min": 8.825674745,
+      "max": 43.67549305
+    },
+    "humidity": {
+      "min": 14.25803981,
+      "max": 99.98187601
+    },
+    "ph": {
+      "min": 3.504752314,
+      "max": 9.93509073
+    },
+    "rainfall": {
+      "min": 20.21126747,
+      "max": 298.5601175
+    }
+  },
+  "validation_status": "passed",
+  "validation_errors": []
+}

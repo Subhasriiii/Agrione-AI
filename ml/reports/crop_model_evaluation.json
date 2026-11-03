@@ -1,0 +1,1184 @@
+{
+  "created_at_utc": "2026-11-02T16:56:47.197988+00:00",
+  "dataset": "C:\\Users\\pavani\\Downloads\\final_project-main\\final_project-main\\ml\\datasets\\crop\\crop_recommendation_clean.csv",
+  "dataset_rows": 2200,
+  "features_in_model_order": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall"
+  ],
+  "target": "label",
+  "class_labels": [
+    "apple",
+    "banana",
+    "blackgram",
+    "chickpea",
+    "coconut",
+    "coffee",
+    "cotton",
+    "grapes",
+    "jute",
+    "kidneybeans",
+    "lentil",
+    "maize",
+    "mango",
+    "mothbeans",
+    "mungbean",
+    "muskmelon",
+    "orange",
+    "papaya",
+    "pigeonpeas",
+    "pomegranate",
+    "rice",
+    "watermelon"
+  ],
+  "split": {
+    "method": "train_test_split with stratify=label",
+    "test_size": 0.2,
+    "random_state": 42,
+    "training_rows": 1760,
+    "test_rows": 440
+  },
+  "cross_validation": {
+    "method": "StratifiedKFold",
+    "folds": 5,
+    "shuffle": true,
+    "random_state": 42,
+    "selection_metric": "mean macro F1"
+  },
+  "metrics_definition": "Precision, recall, and F1 are macro-averaged across crop labels.",
+  "candidate_results_ranked_by_cv_macro_f1": [
+    {
+      "model": "Gaussian Naive Bayes",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.9948863636363636,
+          "std": 0.004668089978737219,
+          "fold_scores": [
+            1.0,
+            0.9971590909090909,
+            0.9886363636363636,
+            0.9914772727272727,
+            0.9971590909090909
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9952211187505305,
+          "std": 0.004384672964717928,
+          "fold_scores": [
+            1.0,
+            0.9973262032085561,
+            0.9891774891774893,
+            0.9922756981580512,
+            0.9973262032085561
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.9948863636363636,
+          "std": 0.004668089978737219,
+          "fold_scores": [
+            1.0,
+            0.9971590909090909,
+            0.9886363636363636,
+            0.9914772727272727,
+            0.9971590909090909
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.9948713284300658,
+          "std": 0.004686907428691317,
+          "fold_scores": [
+            1.0,
+            0.9971563138718564,
+            0.9885918003565063,
+            0.9914522140501095,
+            0.9971563138718564
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.010988664627075196
+    },
+    {
+      "model": "Random Forest",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.99375,
+          "std": 0.0061589441445110155,
+          "fold_scores": [
+            1.0,
+            0.9971590909090909,
+            0.9857954545454546,
+            0.9886363636363636,
+            0.9971590909090909
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9945148075179034,
+          "std": 0.005253885511067766,
+          "fold_scores": [
+            1.0,
+            0.9973262032085561,
+            0.987772461456672,
+            0.9901491697157332,
+            0.9973262032085561
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.99375,
+          "std": 0.0061589441445110155,
+          "fold_scores": [
+            1.0,
+            0.9971590909090909,
+            0.9857954545454546,
+            0.9886363636363636,
+            0.9971590909090909
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.9937136490573764,
+          "std": 0.006206038551538868,
+          "fold_scores": [
+            1.0,
+            0.9971563138718564,
+            0.9856976019247825,
+            0.9885580156183859,
+            0.9971563138718564
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.7816719532012939
+    },
+    {
+      "model": "HistGradientBoosting",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.9914772727272727,
+          "std": 0.005314854242576594,
+          "fold_scores": [
+            0.9971590909090909,
+            0.9857954545454546,
+            0.9943181818181818,
+            0.9943181818181818,
+            0.9857954545454546
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9919637551990494,
+          "std": 0.0049014402890809935,
+          "fold_scores": [
+            0.9973262032085561,
+            0.9872251931075461,
+            0.9943181818181818,
+            0.9946524064171123,
+            0.9862967914438503
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.9914772727272727,
+          "std": 0.005314854242576594,
+          "fold_scores": [
+            0.9971590909090909,
+            0.9857954545454546,
+            0.9943181818181818,
+            0.9943181818181818,
+            0.9857954545454546
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.991484022561304,
+          "std": 0.005302165228706361,
+          "fold_scores": [
+            0.9971563138718564,
+            0.9858458659390176,
+            0.9943181818181818,
+            0.9943126277437128,
+            0.985787123433751
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 4.4577868461608885
+    },
+    {
+      "model": "Extra Trees",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.9914772727272727,
+          "std": 0.005314854242576638,
+          "fold_scores": [
+            0.9971590909090909,
+            0.9914772727272727,
+            0.9829545454545454,
+            0.9914772727272727,
+            0.9943181818181818
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9921494355317885,
+          "std": 0.004628422632873219,
+          "fold_scores": [
+            0.9973262032085561,
+            0.9918114973262032,
+            0.9848484848484849,
+            0.9922756981580512,
+            0.9944852941176471
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.9914772727272727,
+          "std": 0.005314854242576638,
+          "fold_scores": [
+            0.9971590909090909,
+            0.9914772727272727,
+            0.9829545454545454,
+            0.9914772727272727,
+            0.9943181818181818
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.9914159268079399,
+          "std": 0.005422413988191588,
+          "fold_scores": [
+            0.9971563138718564,
+            0.9914717186528037,
+            0.9826839826839827,
+            0.9914522140501095,
+            0.9943154047809473
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.5908080577850342
+    },
+    {
+      "model": "RBF SVM",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.9823863636363637,
+          "std": 0.005464597744792987,
+          "fold_scores": [
+            0.9886363636363636,
+            0.9801136363636364,
+            0.9744318181818182,
+            0.9857954545454546,
+            0.9829545454545454
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9841234380514567,
+          "std": 0.005535193370124006,
+          "fold_scores": [
+            0.9901491697157332,
+            0.9807820855614974,
+            0.977124183006536,
+            0.9891774891774893,
+            0.9833842627960275
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.9823863636363637,
+          "std": 0.005464597744792987,
+          "fold_scores": [
+            0.9886363636363636,
+            0.9801136363636364,
+            0.9744318181818182,
+            0.9857954545454546,
+            0.9829545454545454
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.9822118168978686,
+          "std": 0.005473326099573547,
+          "fold_scores": [
+            0.9885580156183856,
+            0.9802802585977073,
+            0.9741361967340922,
+            0.9854399854399852,
+            0.9826446280991736
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.21810975074768066
+    },
+    {
+      "model": "K-Nearest Neighbors",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.9664772727272727,
+          "std": 0.011434438521305738,
+          "fold_scores": [
+            0.9801136363636364,
+            0.9715909090909091,
+            0.9488636363636364,
+            0.9659090909090909,
+            0.9659090909090909
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.9709793148588746,
+          "std": 0.009012508874413183,
+          "fold_scores": [
+            0.9817935547424711,
+            0.9741119733379794,
+            0.9571567063827126,
+            0.9727970239479191,
+            0.9690373158832911
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.9664772727272727,
+          "std": 0.011434438521305738,
+          "fold_scores": [
+            0.9801136363636364,
+            0.9715909090909091,
+            0.9488636363636364,
+            0.9659090909090909,
+            0.9659090909090909
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.9660839469593359,
+          "std": 0.012022321098698505,
+          "fold_scores": [
+            0.9800325113084241,
+            0.9717444535798858,
+            0.9473449524506851,
+            0.9655695233407844,
+            0.9657282941169004
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.00988597869873047
+    },
+    {
+      "model": "DummyClassifier (prior)",
+      "cv_metrics": {
+        "accuracy": {
+          "mean": 0.045454545454545456,
+          "std": 0.0,
+          "fold_scores": [
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456
+          ]
+        },
+        "precision_macro": {
+          "mean": 0.002066115702479339,
+          "std": 0.0,
+          "fold_scores": [
+            0.002066115702479339,
+            0.002066115702479339,
+            0.002066115702479339,
+            0.002066115702479339,
+            0.002066115702479339
+          ]
+        },
+        "recall_macro": {
+          "mean": 0.045454545454545456,
+          "std": 0.0,
+          "fold_scores": [
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456,
+            0.045454545454545456
+          ]
+        },
+        "f1_macro": {
+          "mean": 0.003952569169960474,
+          "std": 0.0,
+          "fold_scores": [
+            0.003952569169960474,
+            0.003952569169960474,
+            0.003952569169960474,
+            0.003952569169960474,
+            0.003952569169960474
+          ]
+        }
+      },
+      "mean_fit_time_seconds": 0.005751466751098633
+    }
+  ],
+  "selected_model": "Gaussian Naive Bayes",
+  "selected_cv_metrics": {
+    "accuracy": {
+      "mean": 0.9948863636363636,
+      "std": 0.004668089978737219,
+      "fold_scores": [
+        1.0,
+        0.9971590909090909,
+        0.9886363636363636,
+        0.9914772727272727,
+        0.9971590909090909
+      ]
+    },
+    "precision_macro": {
+      "mean": 0.9952211187505305,
+      "std": 0.004384672964717928,
+      "fold_scores": [
+        1.0,
+        0.9973262032085561,
+        0.9891774891774893,
+        0.9922756981580512,
+        0.9973262032085561
+      ]
+    },
+    "recall_macro": {
+      "mean": 0.9948863636363636,
+      "std": 0.004668089978737219,
+      "fold_scores": [
+        1.0,
+        0.9971590909090909,
+        0.9886363636363636,
+        0.9914772727272727,
+        0.9971590909090909
+      ]
+    },
+    "f1_macro": {
+      "mean": 0.9948713284300658,
+      "std": 0.004686907428691317,
+      "fold_scores": [
+        1.0,
+        0.9971563138718564,
+        0.9885918003565063,
+        0.9914522140501095,
+        0.9971563138718564
+      ]
+    }
+  },
+  "selected_model_training_metrics": {
+    "accuracy": 0.9948863636363636,
+    "precision_macro": 0.9949959072766089,
+    "recall_macro": 0.9948863636363636,
+    "f1_macro": 0.9948834987551248
+  },
+  "held_out_test_metrics": {
+    "accuracy": 0.9954545454545455,
+    "precision_macro": 0.9958677685950413,
+    "recall_macro": 0.9954545454545454,
+    "f1_macro": 0.9954431533378901
+  },
+  "train_minus_test_metric_gap": {
+    "accuracy": -0.0005681818181818565,
+    "precision_macro": -0.0008718613184324209,
+    "recall_macro": -0.0005681818181817455,
+    "f1_macro": -0.000559654582765301
+  },
+  "held_out_classification_report": {
+    "apple": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "banana": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "blackgram": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "chickpea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "coconut": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "coffee": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "cotton": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "grapes": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "jute": {
+      "precision": 0.9090909090909091,
+      "recall": 1.0,
+      "f1-score": 0.9523809523809523,
+      "support": 20.0
+    },
+    "kidneybeans": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "lentil": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "maize": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "mango": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "mothbeans": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "mungbean": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "muskmelon": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "orange": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "papaya": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "pigeonpeas": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "pomegranate": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "rice": {
+      "precision": 1.0,
+      "recall": 0.9,
+      "f1-score": 0.9473684210526315,
+      "support": 20.0
+    },
+    "watermelon": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 20.0
+    },
+    "accuracy": 0.9954545454545455,
+    "macro avg": {
+      "precision": 0.9958677685950413,
+      "recall": 0.9954545454545454,
+      "f1-score": 0.9954431533378901,
+      "support": 440.0
+    },
+    "weighted avg": {
+      "precision": 0.9958677685950413,
+      "recall": 0.9954545454545455,
+      "f1-score": 0.9954431533378901,
+      "support": 440.0
+    }
+  },
+  "held_out_confusion_matrix": {
+    "labels_in_row_and_column_order": [
+      "apple",
+      "banana",
+      "blackgram",
+      "chickpea",
+      "coconut",
+      "coffee",
+      "cotton",
+      "grapes",
+      "jute",
+      "kidneybeans",
+      "lentil",
+      "maize",
+      "mango",
+      "mothbeans",
+      "mungbean",
+      "muskmelon",
+      "orange",
+      "papaya",
+      "pigeonpeas",
+      "pomegranate",
+      "rice",
+      "watermelon"
+    ],
+    "matrix": [
+      [
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        18,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        20
+      ]
+    ]
+  },
+  "limitations": [
+    "This is a small, single-source dataset; a random split cannot establish performance in other regions, seasons, years, or measurement systems.",
+    "The records may be synthetic, curated, or otherwise unrepresentative; provenance and field validation are not established by this evaluation.",
+    "The target is the dataset label, not observed crop yield, profitability, or causal suitability.",
+    "The model only sees N, P, K, temperature, humidity, pH, and rainfall; it does not account for location, season, soil type, irrigation, prices, or farmer constraints.",
+    "A high random-split score can be optimistic if near-duplicates or source-specific patterns occur across the split; duplicate checks are reported separately.",
+    "Predicted class probabilities, when available, are not automatically calibrated and must not be presented as agronomic confidence without calibration and external validation."
+  ],
+  "saved_model_path": "C:\\Users\\pavani\\Downloads\\final_project-main\\final_project-main\\ml\\models\\crop_recommendation_pipeline.joblib",
+  "saved_pipeline_training_rows": 2200
+}

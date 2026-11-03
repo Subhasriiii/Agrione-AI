@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files (Protect secrets)
+.env
+.env.*
+!.env.example
+
+# Production builds
+dist/
+build/
+*/dist/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+*/uploads/*
+!*/uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python virtual environments
+.venv/
+.venv-disease/
+
+# Python cache files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Local datasets (download separately using the documented source)
+ml/datasets/
+
+# Local environment files at any project level
+**/.env
+**/.env.*
+!**/.env.example
+
+# Temporary backup files
+*.bak
