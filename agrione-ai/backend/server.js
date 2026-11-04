@@ -35,6 +35,7 @@ app.use("/api/assistant", require("./routes/assistant"));
 app.use("/api/schemes", require("./routes/schemes"));
 app.use("/api/market", require("./routes/market"));
 app.use("/api/marketplace", require("./routes/marketplace"));
+app.use("/api/orders", require("./routes/orders"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/ocr", require("./routes/ocr"));
 
@@ -59,6 +60,7 @@ app.get("/", (req, res) => {
       schemes: "/api/schemes",
       market: "/api/market",
       marketplace: "/api/marketplace",
+      orders: "/api/orders",
       notifications: "/api/notifications",
       ocr: "/api/ocr",
     },

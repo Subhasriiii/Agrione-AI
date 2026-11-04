@@ -1,4 +1,5 @@
 const ProduceListing = require('../models/ProduceListing');
+const Order = require('../models/Order');
 
 // Create listing
 exports.createListing = async (req, res) => {
@@ -16,7 +17,7 @@ exports.createListing = async (req, res) => {
 exports.getListings = async (req, res) => {
   try {
     const { crop, location, search } = req.query;
-    const filter = { isAvailable: true };
+    const filter = { isAvailable: true, quantity: { $gt: 0 } };
     if (crop) filter.cropName = { $regex: crop, $options: 'i' };
     if (location) filter.location = { $regex: location, $options: 'i' };
     if (search) {
@@ -82,7 +83,21 @@ exports.updateListing = async (req, res) => {
 // Delete listing
 exports.deleteListing = async (req, res) => {
   try {
-    const listing = await ProduceListing.findOneAndDelete({ _id: req.params.id, seller: req.user._id });
+    const ownedListing = await ProduceListing.findOne({ _id: req.params.id, seller: req.user._id });
+    if (!ownedListing) return res.status(404).json({ success: false, message: 'Listing not found.' });
+
+    const activeOrder = await Order.exists({
+      listing: ownedListing._id,
+      $or: [
+        { status: { $in: ['pending', 'accepted'] } },
+        { status: 'rejected', stockRestored: false },
+      ],
+    });
+    if (activeOrder) {
+      return res.status(409).json({ success: false, message: 'This listing has pending or accepted orders and cannot be deleted.' });
+    }
+
+    const listing = await ProduceListing.findOneAndDelete({ _id: ownedListing._id, seller: req.user._id });
     if (!listing) return res.status(404).json({ success: false, message: 'Listing not found.' });
     res.json({ success: true, message: 'Listing removed.' });
   } catch (error) {
