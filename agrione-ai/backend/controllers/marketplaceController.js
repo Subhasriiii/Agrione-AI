@@ -61,9 +61,15 @@ exports.getMyListings = async (req, res) => {
 // Update listing
 exports.updateListing = async (req, res) => {
   try {
+    const updates = {};
+    const allowedFields = ['cropName', 'quantity', 'quantityUnit', 'expectedPrice', 'priceUnit', 'location', 'description', 'contactMethod'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    });
+
     const listing = await ProduceListing.findOneAndUpdate(
       { _id: req.params.id, seller: req.user._id },
-      req.body,
+      updates,
       { new: true }
     );
     if (!listing) return res.status(404).json({ success: false, message: 'Listing not found.' });

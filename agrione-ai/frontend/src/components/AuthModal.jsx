@@ -156,8 +156,7 @@ const AuthModal = ({ isOpen, onClose }) => {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   >
                     <option value="farmer">Farmer</option>
-                    <option value="buyer">Produce Buyer / Trader</option>
-                    <option value="agronomist">Agronomist / Consultant</option>
+                    <option value="buyer">Buyer</option>
                   </select>
                 </div>
               </div>
@@ -191,7 +190,7 @@ const AuthModal = ({ isOpen, onClose }) => {
             className="btn btn-primary"
             style={{ width: '100%', marginTop: '1rem' }}
           >
-            {loading ? 'Processing...' : isRegister ? 'Create Farmer Account' : 'Sign In'}
+            {loading ? 'Processing...' : isRegister ? 'Create Account' : 'Sign In'}
           </button>
 
           <div style={{ textAlign: 'center', marginTop: '1.2rem' }}>

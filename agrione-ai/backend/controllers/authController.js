@@ -17,9 +17,13 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, phone, location, state, district, role } = req.body;
     const normalizedEmail = normalizeEmail(email);
+    const registrationRole = role === undefined ? 'farmer' : role;
 
     if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Name, email and password are required.' });
+    }
+    if (!['farmer', 'buyer'].includes(registrationRole)) {
+      return res.status(400).json({ success: false, message: 'Role must be farmer or buyer.' });
     }
     if (password.length < 6) {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
@@ -30,7 +34,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'An account with this email already exists.' });
     }
 
-    const user = await User.create({ name, email: normalizedEmail, password, phone, location, state, district, role: role || 'farmer' });
+    const user = await User.create({ name, email: normalizedEmail, password, phone, location, state, district, role: registrationRole });
     const token = generateToken(user._id);
 
     res.status(201).json({ success: true, message: 'Registration successful!', token, user });
