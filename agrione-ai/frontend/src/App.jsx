@@ -19,6 +19,7 @@ import WhatIfSimulation from './pages/WhatIfSimulation';
 import WeatherAdvisory from './pages/WeatherAdvisory';
 import MarketMandi from './pages/MarketMandi';
 import Marketplace from './pages/Marketplace';
+import Orders from './pages/Orders';
 import GovernmentSchemes from './pages/GovernmentSchemes';
 import AIAssistant from './pages/AIAssistant';
 
@@ -65,6 +66,7 @@ function App() {
             <Route path="/weather" element={requireAuth(<WeatherAdvisory />)} />
             <Route path="/market" element={requireAuth(<MarketMandi />)} />
             <Route path="/marketplace" element={requireAuth(<Marketplace />)} />
+            <Route path="/orders" element={requireAuth(<Orders />)} />
             <Route path="/schemes" element={requireAuth(<GovernmentSchemes />)} />
             <Route path="/assistant" element={requireAuth(<AIAssistant />)} />
             <Route path="*" element={<Navigate to="/" replace />} />

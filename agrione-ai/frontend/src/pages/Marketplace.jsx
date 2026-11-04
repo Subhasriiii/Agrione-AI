@@ -25,6 +25,15 @@ const Marketplace = () => {
   const [formError, setFormError] = useState('');
   const [savingListing, setSavingListing] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [selectedOrderListing, setSelectedOrderListing] = useState(null);
+  const [orderForm, setOrderForm] = useState({
+    quantity: '',
+    deliveryAddress: user?.location || '',
+    contactPhone: user?.phone || '',
+  });
+  const [orderError, setOrderError] = useState('');
+  const [orderSuccess, setOrderSuccess] = useState('');
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCrop, setSelectedCrop] = useState('all');
 
@@ -153,6 +162,70 @@ const Marketplace = () => {
     }
   };
 
+  const openOrderForm = (listing) => {
+    if (user?.role !== 'buyer' || listing.isAvailable === false || Number(listing.quantity) <= 0) return;
+    setOrderSuccess('');
+    setOrderError('');
+    setOrderForm({
+      quantity: '',
+      deliveryAddress: user?.location || '',
+      contactPhone: user?.phone || '',
+    });
+    setSelectedOrderListing(listing);
+  };
+
+  const closeOrderForm = () => {
+    if (placingOrder) return;
+    setSelectedOrderListing(null);
+    setOrderError('');
+  };
+
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault();
+    if (user?.role !== 'buyer' || !selectedOrderListing || placingOrder) return;
+
+    const quantity = Number(orderForm.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setOrderError('Enter a quantity greater than zero.');
+      return;
+    }
+    if (quantity > Number(selectedOrderListing.quantity)) {
+      setOrderError(`Quantity cannot exceed the available ${selectedOrderListing.quantity} ${selectedOrderListing.quantityUnit}.`);
+      return;
+    }
+    if (!orderForm.deliveryAddress.trim()) {
+      setOrderError('Enter a delivery address.');
+      return;
+    }
+    if (!orderForm.contactPhone.trim()) {
+      setOrderError('Enter a contact phone number.');
+      return;
+    }
+
+    setOrderError('');
+    setOrderSuccess('');
+    setPlacingOrder(true);
+    try {
+      await marketApi.placeOrder({
+        listingId: selectedOrderListing._id,
+        quantity,
+        deliveryAddress: orderForm.deliveryAddress.trim(),
+        contactPhone: orderForm.contactPhone.trim(),
+      });
+      setSelectedOrderListing(null);
+      setOrderSuccess('Order placed successfully. You can check its status in your order history.');
+      await loadListings('browse');
+    } catch (error) {
+      setOrderError(error.message || 'Unable to place the order. Please try again.');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  const estimatedTotal = selectedOrderListing
+    ? Number(orderForm.quantity) * Number(selectedOrderListing.expectedPrice)
+    : 0;
+
   const filteredListings = listings.filter((l) => {
     const matchesSearch =
       l.cropName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -247,6 +320,11 @@ const Marketplace = () => {
       {listingsError && (
         <div className="glass-panel" role="alert" style={{ padding: '1rem', marginBottom: '1rem', color: '#f87171' }}>
           {listingsError}
+        </div>
+      )}
+      {orderSuccess && (
+        <div className="glass-panel" role="status" style={{ padding: '1rem', marginBottom: '1rem', color: '#34d399' }}>
+          {orderSuccess}
         </div>
       )}
 
@@ -344,6 +422,16 @@ const Marketplace = () => {
                   <Mail size={15} />
                   Email Seller
                 </a>
+              )}
+              {user?.role === 'buyer' && listing.isAvailable !== false && Number(listing.quantity) > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => openOrderForm(listing)}
+                  style={{ flex: 1 }}
+                >
+                  Place Order
+                </button>
               )}
               {user?.role === 'farmer' && activeTab === 'my' && (
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -504,6 +592,95 @@ const Marketplace = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={savingListing}>
                   {savingListing ? 'Saving...' : editingListing ? 'Save Changes' : 'Publish to Marketplace'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {selectedOrderListing && user?.role === 'buyer' && (
+        <div className="modal-overlay" onClick={closeOrderForm}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Place Order: {selectedOrderListing.cropName}</h3>
+              <button
+                type="button"
+                onClick={closeOrderForm}
+                disabled={placingOrder}
+                aria-label="Close order form"
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePlaceOrder} className="modal-body">
+              {orderError && (
+                <div role="alert" style={{ color: '#f87171', marginBottom: '1rem' }}>
+                  {orderError}
+                </div>
+              )}
+
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                Available: {selectedOrderListing.quantity} {selectedOrderListing.quantityUnit}
+                {' · '}Price: ₹{Number(selectedOrderListing.expectedPrice).toLocaleString()} {selectedOrderListing.priceUnit}
+              </p>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="order-quantity">Quantity ({selectedOrderListing.quantityUnit})</label>
+                <input
+                  id="order-quantity"
+                  type="number"
+                  className="form-input"
+                  min="0.01"
+                  max={selectedOrderListing.quantity}
+                  step="any"
+                  required
+                  value={orderForm.quantity}
+                  onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="order-address">Delivery Address</label>
+                <textarea
+                  id="order-address"
+                  className="form-textarea"
+                  rows={3}
+                  required
+                  maxLength={1000}
+                  value={orderForm.deliveryAddress}
+                  onChange={(e) => setOrderForm({ ...orderForm, deliveryAddress: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="order-phone">Contact Phone</label>
+                <input
+                  id="order-phone"
+                  type="tel"
+                  className="form-input"
+                  required
+                  maxLength={50}
+                  value={orderForm.contactPhone}
+                  onChange={(e) => setOrderForm({ ...orderForm, contactPhone: e.target.value })}
+                />
+              </div>
+
+              <div className="glass-panel" style={{ padding: '1rem', marginBottom: '1rem' }}>
+                Estimated total: <strong>₹{Number.isFinite(estimatedTotal) ? estimatedTotal.toLocaleString() : '0'}</strong>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  Final amount is calculated by the server when you place the order.
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: '1px solid var(--border-subtle)' }}>
+                <button type="button" onClick={closeOrderForm} className="btn btn-secondary" disabled={placingOrder}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={placingOrder}>
+                  {placingOrder ? 'Placing Order...' : 'Place Order'}
                 </button>
               </div>
             </form>

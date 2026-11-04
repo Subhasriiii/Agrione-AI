@@ -13,4 +13,12 @@ export const marketApi = {
     }),
   updateListing: (id, data) => api.put(`/marketplace/${id}`, data),
   deleteListing: (id) => api.delete(`/marketplace/${id}`),
+
+  // Orders
+  placeOrder: (data) => api.post('/orders', data),
+  getMyOrders: () => api.get('/orders/my'),
+  getReceivedOrders: () => api.get('/orders/received'),
+  acceptOrder: (id) => api.patch(`/orders/${id}/accept`),
+  rejectOrder: (id) => api.patch(`/orders/${id}/reject`),
+  completeOrder: (id) => api.patch(`/orders/${id}/complete`),
 };
