@@ -1,59 +1,73 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useFarm } from '../context/FarmContext';
 import { schemesApi } from '../api/schemesApi';
-import {
-  Sun,
-  CloudRain,
-  Wind,
-  Droplets,
-  CloudSun,
-  AlertTriangle,
-  Calendar,
-  CheckCircle2,
-  MapPin,
-} from 'lucide-react';
-
-const MOCK_FORECAST = [
-  { day: 'Today', tempMax: 32, tempMin: 23, condition: 'Sunny', rainProb: 10, icon: Sun },
-  { day: 'Tomorrow', tempMax: 33, tempMin: 24, condition: 'Partly Cloudy', rainProb: 20, icon: CloudSun },
-  { day: 'Thursday', tempMax: 30, tempMin: 22, condition: 'Scattered Showers', rainProb: 65, icon: CloudRain },
-  { day: 'Friday', tempMax: 29, tempMin: 22, condition: 'Light Rain', rainProb: 75, icon: CloudRain },
-  { day: 'Saturday', tempMax: 31, tempMin: 23, condition: 'Partly Cloudy', rainProb: 30, icon: CloudSun },
-  { day: 'Sunday', tempMax: 33, tempMin: 24, condition: 'Sunny & Warm', rainProb: 10, icon: Sun },
-  { day: 'Monday', tempMax: 34, tempMin: 25, condition: 'Sunny', rainProb: 5, icon: Sun },
-];
+import { AlertTriangle } from 'lucide-react';
 
 const WeatherAdvisory = () => {
   const { activeFarm } = useFarm();
+  const farmLocation = activeFarm?.location?.district || activeFarm?.location?.state || 'Hyderabad';
+  const [location, setLocation] = useState(farmLocation);
   const [currentWeather, setCurrentWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
+  const [forecastError, setForecastError] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const requestId = useRef(0);
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const res = await schemesApi.getWeather({
-          location: activeFarm?.location?.district || activeFarm?.location?.state || 'Hyderabad',
-        });
+  const fetchWeather = useCallback(async (city) => {
+    const requestedLocation = city.trim();
+    if (!requestedLocation) {
+      requestId.current += 1;
+      setLoading(false);
+      setCurrentWeather(null);
+      setForecast([]);
+      setForecastError('');
+      setError('Enter a city name to search for weather.');
+      return;
+    }
 
-        if (res?.weather) {
-          setCurrentWeather(res.weather);
-          setForecast(res.forecast || []);
-          setError('');
-        } else {
-          setCurrentWeather(null);
-          setForecast([]);
-          setError(res?.message || 'Live weather is not configured yet.');
-        }
-      } catch (apiError) {
+    const currentRequestId = ++requestId.current;
+    setLoading(true);
+    setCurrentWeather(null);
+    setForecast([]);
+    setForecastError('');
+    setError('');
+
+    try {
+      const res = await schemesApi.getWeather({ location: requestedLocation });
+      if (currentRequestId !== requestId.current) return;
+
+      if (res?.weather) {
+        setCurrentWeather(res.weather);
+        setForecast(res.forecast || []);
+        setForecastError(res.forecastError || '');
+      } else {
         setCurrentWeather(null);
         setForecast([]);
-        setError(apiError.message || 'Weather feed is unavailable.');
+        setError(res?.message || `Unable to load weather for ${requestedLocation}. Check the city name and try again.`);
       }
-    };
+    } catch (apiError) {
+      if (currentRequestId !== requestId.current) return;
+      setCurrentWeather(null);
+      setForecast([]);
+      setForecastError('');
+      setError(apiError.message || `Unable to load weather for ${requestedLocation}. Check the city name and try again.`);
+    } finally {
+      if (currentRequestId === requestId.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
-    fetchWeather();
-  }, [activeFarm]);
+  useEffect(() => {
+    setLocation(farmLocation);
+    fetchWeather(farmLocation);
+  }, [activeFarm?._id, farmLocation, fetchWeather]);
+
+  const handleSearch = (event) => {
+    event.preventDefault();
+    fetchWeather(location);
+  };
 
   return (
     <div className="page-container">
@@ -68,36 +82,64 @@ const WeatherAdvisory = () => {
         </div>
       </div>
 
-      {error ? (
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Enter city name"
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+          aria-label="City name"
+        />
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </form>
+
+      {loading ? (
+        <div className="glass-panel" role="status" style={{ padding: '2rem', textAlign: 'center' }}>
+          Loading weather...
+        </div>
+      ) : error ? (
         <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
           <AlertTriangle size={24} style={{ color: '#fbbf24', marginBottom: '0.5rem' }} />
           <h3>Weather data unavailable</h3>
           <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
-          <p style={{ color: 'var(--text-muted)' }}>Add WEATHER_API_KEY to the backend .env file to enable live weather integration.</p>
         </div>
       ) : currentWeather ? (
         <>
           <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800 }}>{currentWeather.temperature ?? '--'}°C</div>
-                <div style={{ color: 'var(--text-secondary)' }}>{currentWeather.description || 'Weather condition unavailable'}</div>
+              <h2>{currentWeather.location || 'Location unavailable'}</h2>
+              <div style={{ fontSize: '2.5rem', fontWeight: 800 }}>{currentWeather.temperature ?? '--'}°C</div>
+              <div style={{ color: 'var(--text-secondary)' }}>{currentWeather.description || 'Weather condition unavailable'}</div>
               </div>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div><small>Humidity</small><div>{currentWeather.humidity ?? '--'}%</div></div>
-                <div><small>Wind</small><div>{currentWeather.windSpeed ?? '--'} km/h</div></div>
+                <div><small>Wind</small><div>{currentWeather.windSpeed ?? '--'} m/s</div></div>
                 <div><small>Rain</small><div>{currentWeather.rainfall ?? 0} mm</div></div>
               </div>
             </div>
           </div>
 
+          {forecastError && (
+            <div className="glass-panel" role="alert" style={{ padding: '1rem', marginBottom: '1rem', color: '#fbbf24' }}>
+              Five-day forecast unavailable: {forecastError}
+            </div>
+          )}
+
           {forecast.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-              {forecast.map((item, idx) => (
-                <div key={idx} className="glass-panel" style={{ padding: '1rem', textAlign: 'center' }}>
+              {forecast.map((item) => (
+                <div key={item.date || item.day} className="glass-panel" style={{ padding: '1rem', textAlign: 'center' }}>
                   <div>{item.day || 'Day'}</div>
-                  <div style={{ margin: '0.5rem 0', fontWeight: 700 }}>{item.tempMax ?? '--'}° / {item.tempMin ?? '--'}°</div>
-                  <div>{item.rainProb ?? 0}% rain</div>
+                  {item.date && <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{item.date}</div>}
+                  <div style={{ margin: '0.5rem 0', fontWeight: 700 }}>
+                    {item.tempMax ?? '--'}° / {item.tempMin ?? '--'}°C
+                  </div>
+                  <div style={{ textTransform: 'capitalize' }}>{item.condition || 'Condition unavailable'}</div>
+                  <div>{item.rainProb ?? '--'}% rain probability</div>
                 </div>
               ))}
             </div>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFarm } from '../context/FarmContext';
 import { advisoryApi } from '../api/advisoryApi';
+import { schemesApi } from '../api/schemesApi';
 import {
   Droplets,
   Sparkles,
@@ -23,16 +24,109 @@ const getFarmInputs = (farm) => ({
   growthStage: '',
 });
 
+const getFarmWeatherLocation = (farm) => {
+  const farmLocation = typeof farm?.location === 'string' ? farm.location.trim() : '';
+  const looksLikeCityQuery = farmLocation.length > 0
+    && farmLocation.length <= 60
+    && !/[,\d]/.test(farmLocation)
+    && !/\b(?:road|street|lane|highway|near|plot|house|survey|pincode|postal)\b/i.test(farmLocation)
+    && /^[\p{L}][\p{L}\s.'-]*[\p{L}.]$/u.test(farmLocation);
+
+  return looksLikeCityQuery ? farmLocation : 'Hyderabad';
+};
+
 const SmartIrrigation = () => {
   const { activeFarm } = useFarm();
   return <IrrigationCalculator key={activeFarm?._id || 'no-active-farm'} activeFarm={activeFarm} />;
 };
 
 const IrrigationCalculator = ({ activeFarm }) => {
+  const initialWeatherLocation = useRef(getFarmWeatherLocation(activeFarm));
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState(() => getFarmInputs(activeFarm));
+  const [weatherLocation, setWeatherLocation] = useState(initialWeatherLocation.current);
+  const [weatherResultLocation, setWeatherResultLocation] = useState('');
   const [advice, setAdvice] = useState(null);
   const [error, setError] = useState('');
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherStatus, setWeatherStatus] = useState({ type: 'loading', message: 'Loading live weather...' });
+  const manuallyEditedWeatherFields = useRef(new Set());
+  const weatherRequestId = useRef(0);
+
+  const fetchWeather = useCallback(async (city) => {
+    const location = city.trim();
+    const requestId = ++weatherRequestId.current;
+    if (!location) {
+      setWeatherLoading(false);
+      setWeatherResultLocation('');
+      setWeatherStatus({ type: 'unavailable', message: 'Enter a city name to fetch live weather.' });
+      return;
+    }
+
+    setWeatherLoading(true);
+    setWeatherStatus({ type: 'loading', message: `Loading live weather for ${location}...` });
+
+    try {
+      const res = await schemesApi.getWeather({ location });
+      if (requestId !== weatherRequestId.current) return;
+
+      if (!res?.weather) {
+        setWeatherResultLocation('');
+        setWeatherStatus({
+          type: 'unavailable',
+          message: res?.message || `Live weather for ${location} is unavailable. Temperature and humidity can be entered manually.`,
+        });
+        return;
+      }
+
+      const weatherValues = {};
+      ['temperature', 'humidity'].forEach((field) => {
+        const value = res.weather[field];
+        if (value !== undefined && value !== null && Number.isFinite(Number(value))) {
+          weatherValues[field] = String(value);
+        }
+      });
+
+      setInputs((current) => {
+        const next = { ...current };
+        Object.entries(weatherValues).forEach(([field, value]) => {
+          if (!manuallyEditedWeatherFields.current.has(field)) {
+            next[field] = value;
+          }
+        });
+        return next;
+      });
+      const returnedLocation = res.weather.location || location;
+      setWeatherResultLocation(returnedLocation);
+      setWeatherStatus({
+        type: 'success',
+        message: `Live weather loaded for ${returnedLocation}. Rainfall remains a manual input.`,
+      });
+    } catch (weatherError) {
+      if (requestId !== weatherRequestId.current) return;
+      setWeatherResultLocation('');
+      setWeatherStatus({
+        type: 'unavailable',
+        message: `${weatherError.message || `Live weather for ${location} is unavailable.`} Temperature and humidity can be entered manually.`,
+      });
+    } finally {
+      if (requestId === weatherRequestId.current) {
+        setWeatherLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWeather(initialWeatherLocation.current);
+    return () => {
+      weatherRequestId.current += 1;
+    };
+  }, [fetchWeather]);
+
+  const handleWeatherInputChange = (field, value) => {
+    manuallyEditedWeatherFields.current.add(field);
+    setInputs((current) => ({ ...current, [field]: value }));
+  };
 
   const handleCalculate = async (e) => {
     e.preventDefault();
@@ -114,7 +208,42 @@ const IrrigationCalculator = ({ activeFarm }) => {
             <span className="badge badge-info">{activeFarm?.farmName || 'Select a farm'}</span>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Weather city</label>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <input
+                type="text"
+                className="form-input"
+                value={weatherLocation}
+                onChange={(e) => setWeatherLocation(e.target.value)}
+                aria-label="Weather city"
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={weatherLoading}
+                onClick={() => fetchWeather(weatherLocation)}
+              >
+                {weatherLoading ? 'Fetching...' : 'Fetch Weather'}
+              </button>
+            </div>
+            {weatherResultLocation && (
+              <small style={{ color: 'var(--text-muted)' }}>
+                Weather for {weatherResultLocation}
+              </small>
+            )}
+          </div>
+
           <form onSubmit={handleCalculate}>
+            <div
+              role={weatherStatus.type === 'unavailable' ? 'alert' : 'status'}
+              style={{
+                color: weatherStatus.type === 'success' ? '#34d399' : weatherStatus.type === 'unavailable' ? '#fbbf24' : 'var(--text-secondary)',
+                marginBottom: '1rem',
+              }}
+            >
+              {weatherStatus.message}
+            </div>
             <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Crop Name</label>
@@ -205,7 +334,7 @@ const IrrigationCalculator = ({ activeFarm }) => {
                   max="60"
                   step="any"
                   value={inputs.temperature}
-                  onChange={(e) => setInputs({ ...inputs, temperature: e.target.value })}
+                  onChange={(e) => handleWeatherInputChange('temperature', e.target.value)}
                 />
               </div>
               <div className="form-group">
@@ -217,7 +346,7 @@ const IrrigationCalculator = ({ activeFarm }) => {
                   max="100"
                   step="any"
                   value={inputs.humidity}
-                  onChange={(e) => setInputs({ ...inputs, humidity: e.target.value })}
+                  onChange={(e) => handleWeatherInputChange('humidity', e.target.value)}
                 />
               </div>
             </div>

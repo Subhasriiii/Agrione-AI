@@ -106,6 +106,10 @@ export const FarmProvider = ({ children }) => {
   const updateSoil = async (farmId, soilData) => {
     try {
       const res = await farmApi.updateSoil(farmId, soilData);
+      if (res?.success === false) {
+        return { success: false, message: res.message || 'Unable to update soil data' };
+      }
+
       const updatedFarm = res?.farm;
       setFarms((prev) =>
         prev.map((farm) => (farm._id === farmId ? { ...farm, soilData: updatedFarm?.soilData || { ...farm.soilData, ...soilData } } : farm))
