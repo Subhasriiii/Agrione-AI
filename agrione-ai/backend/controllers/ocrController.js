@@ -1,18 +1,26 @@
 // OCR controller for soil report extraction
 // Uses Tesseract.js for text extraction
 
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
+
 exports.extractSoilReport = async (req, res) => {
+  let filePath;
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Please upload a soil report image or PDF.' });
+      return res.status(400).json({ success: false, message: 'Please upload a soil report image.' });
     }
 
     const Tesseract = require('tesseract.js');
-    const filePath = req.file.path;
+    filePath = req.file.path;
+    const cachePath = path.join(os.homedir(), '.agrione-ai', 'tesseract');
+    await fs.mkdir(cachePath, { recursive: true });
 
     // Run OCR
     const { data: { text } } = await Tesseract.recognize(filePath, 'eng', {
       logger: () => {}, // suppress logs
+      cachePath,
     });
 
     // Parse extracted text for soil values
@@ -25,7 +33,16 @@ exports.extractSoilReport = async (req, res) => {
       message: 'Values extracted from soil report. Please verify and correct before saving.',
     });
   } catch (error) {
+    console.error(`OCR extraction failed: ${error.message}`);
     res.status(500).json({ success: false, message: 'OCR extraction failed. Try a clearer image.' });
+  } finally {
+    if (filePath) {
+      await fs.unlink(filePath).catch((error) => {
+        if (error.code !== 'ENOENT') {
+          console.error(`Unable to remove uploaded soil report: ${error.message}`);
+        }
+      });
+    }
   }
 };
 
@@ -67,3 +84,5 @@ function parseSoilValues(text) {
 
   return values;
 }
+
+exports.parseSoilValues = parseSoilValues;

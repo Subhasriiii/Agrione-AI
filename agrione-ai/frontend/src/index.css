@@ -4,21 +4,21 @@
   --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* Fresh, Clean, Modern Agro Color Palette */
-  --bg-main: #f8fafc;
+  /* Calm, high-contrast workspace palette */
+  --bg-main: #f5f7f5;
   --bg-sidebar: #ffffff;
-  --bg-header: rgba(255, 255, 255, 0.92);
+  --bg-header: rgba(255, 255, 255, 0.94);
   --bg-card: #ffffff;
-  --bg-card-hover: #f1f8f4;
-  --bg-subtle: #f1f5f9;
+  --bg-card-hover: #f7faf7;
+  --bg-subtle: #f1f4f1;
   --bg-input: #ffffff;
 
-  /* Primary Emerald & Nature Colors */
-  --primary: #10b981;
-  --primary-hover: #059669;
-  --primary-dark: #064e3b;
-  --primary-light: #d1fae5;
-  --primary-glow: rgba(16, 185, 129, 0.15);
+  /* Restrained agricultural green */
+  --primary: #19804b;
+  --primary-hover: #12643a;
+  --primary-dark: #164b32;
+  --primary-light: #e8f2eb;
+  --primary-glow: rgba(25, 128, 75, 0.14);
 
   --accent-amber: #f59e0b;
   --accent-amber-light: #fef3c7;
@@ -30,24 +30,24 @@
   --accent-rose-light: #ffe4e6;
 
   /* Clean Text Contrast */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-primary: #18251d;
+  --text-secondary: #58665d;
+  --text-muted: #839087;
   --text-on-primary: #ffffff;
 
-  /* Elegant Borders & Soft Shadows */
-  --border-light: #e2e8f0;
-  --border-focus: #10b981;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
-  --shadow-lg: 0 12px 30px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
-  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.03);
+  /* Quiet borders and restrained elevation */
+  --border-light: #e3e9e4;
+  --border-focus: #19804b;
+  --shadow-sm: 0 1px 2px rgba(24, 37, 29, 0.04);
+  --shadow-md: 0 8px 24px -12px rgba(24, 37, 29, 0.18);
+  --shadow-lg: 0 20px 48px -20px rgba(24, 37, 29, 0.24);
+  --shadow-card: 0 2px 8px rgba(24, 37, 29, 0.035);
 
   /* Rounded Corners */
   --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
   --radius-full: 9999px;
 
   --transition: 0.2s ease;
@@ -67,6 +67,16 @@ html, body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-width: 320px;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #d7eadc;
+  color: var(--primary-dark);
 }
 
 /* Typography */
@@ -95,11 +105,11 @@ button, input, select, textarea {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: all var(--transition);
+  transition: box-shadow var(--transition), border-color var(--transition);
 }
 
 .glass-panel:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-card);
 }
 
 .glass-card-interactive {
@@ -107,15 +117,15 @@ button, input, select, textarea {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  transition: all var(--transition);
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
   cursor: pointer;
   box-shadow: var(--shadow-card);
 }
 
 .glass-card-interactive:hover {
   border-color: var(--primary);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 /* Badges */
@@ -125,7 +135,7 @@ button, input, select, textarea {
   gap: 0.35rem;
   padding: 0.3rem 0.75rem;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 650;
   border-radius: var(--radius-full);
   letter-spacing: 0.02em;
 }
@@ -162,25 +172,24 @@ button, input, select, textarea {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.65rem 1.3rem;
-  font-weight: 600;
+  font-weight: 650;
   font-size: 0.9rem;
   border-radius: var(--radius-md);
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all var(--transition);
+  transition: background-color var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition), transform var(--transition);
   white-space: nowrap;
 }
 
 .btn-primary {
   background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 2px 5px rgba(25, 128, 75, 0.15);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 10px rgba(25, 128, 75, 0.2);
 }
 
 .btn-secondary {
@@ -236,12 +245,12 @@ button, input, select, textarea {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: var(--bg-input);
-  border: 1.5px solid var(--border-light);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   outline: none;
   font-size: 0.92rem;
-  transition: border-color var(--transition), box-shadow var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition), background-color var(--transition);
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
@@ -255,7 +264,7 @@ button, input, select, textarea {
 
 /* Gradient accents */
 .gradient-text {
-  background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
+  background: linear-gradient(135deg, #164b32 0%, #238452 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

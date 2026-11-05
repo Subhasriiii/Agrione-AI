@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -33,6 +33,10 @@ function App() {
 
   if (loading) {
     return <div className="page-container"><div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>Loading AgriOne AI...</div></div>;
+  }
+
+  if (!isAuthenticated) {
+    return <AuthModal isOpen fullScreen onClose={() => setAuthModalOpen(false)} />;
   }
 
   return (
