@@ -1,5 +1,3 @@
-import React from 'react';
-
 const MetricCard = ({
   title,
   value,
@@ -26,8 +24,8 @@ const MetricCard = ({
   const iconStyle = getIconStyles();
 
   return (
-    <div className="glass-panel stat-card">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div className="glass-panel stat-card dashboard-metric-card">
+      <div className="dashboard-metric-header">
         <span className="stat-label">{title}</span>
         {Icon && (
           <div
@@ -37,20 +35,20 @@ const MetricCard = ({
               color: iconStyle.color,
             }}
           >
-            <Icon size={22} />
+            <Icon size={21} />
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', margin: '0.25rem 0' }}>
+      <div className="dashboard-metric-value-row">
         <div className="stat-val">{value}</div>
-        {unit && <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>{unit}</span>}
+        {unit && <span className="dashboard-metric-unit">{unit}</span>}
       </div>
 
       {(subtitle || badgeText) && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.35rem' }}>
+        <div className="dashboard-metric-details">
           {subtitle && (
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <span className="dashboard-metric-subtitle">
               {subtitle}
             </span>
           )}

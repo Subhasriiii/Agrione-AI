@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { farmApi } from '../api/farmApi';
 import { schemesApi } from '../api/schemesApi';
 import { useAuth } from './AuthContext';
@@ -12,7 +12,37 @@ export const FarmProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [farmError, setFarmError] = useState('');
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationLoading, setNotificationLoading] = useState(true);
+  const [notificationError, setNotificationError] = useState('');
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+
+  const refreshNotifications = useCallback(async () => {
+    setNotificationLoading(true);
+    setNotificationError('');
+    try {
+      const res = await schemesApi.getNotifications();
+      if (
+        res?.success !== true ||
+        !Array.isArray(res.notifications) ||
+        !Number.isInteger(res.unreadCount) ||
+        res.unreadCount < 0 ||
+        !res.notifications.every((notification) => typeof notification.isRead === 'boolean')
+      ) {
+        throw new Error(res?.message || 'The notifications service returned an unexpected response.');
+      }
+
+      setNotifications(res.notifications);
+      setUnreadNotificationCount(res.unreadCount);
+      return { success: true };
+    } catch (error) {
+      const message = error.message || 'Unable to load notifications.';
+      setNotificationError(message);
+      return { success: false, message };
+    } finally {
+      setNotificationLoading(false);
+    }
+  }, []);
 
   const updateFarm = async (farmId, farmData) => {
     try {
@@ -39,6 +69,9 @@ export const FarmProvider = ({ children }) => {
         setActiveFarm(null);
         setFarmError('');
         setNotifications([]);
+        setUnreadNotificationCount(0);
+        setNotificationError('');
+        setNotificationLoading(false);
         return;
       }
 
@@ -63,25 +96,45 @@ export const FarmProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    const loadNotifications = async () => {
-      if (!user) {
+    let active = true;
+    if (!user) {
+      Promise.resolve().then(() => {
+        if (!active) return;
         setNotifications([]);
-        return;
+        setUnreadNotificationCount(0);
+        setNotificationError('');
+        setNotificationLoading(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    schemesApi.getNotifications().then((res) => {
+      if (!active) return;
+      if (
+        res?.success !== true ||
+        !Array.isArray(res.notifications) ||
+        !Number.isInteger(res.unreadCount) ||
+        res.unreadCount < 0 ||
+        !res.notifications.every((notification) => typeof notification.isRead === 'boolean')
+      ) {
+        throw new Error(res?.message || 'The notifications service returned an unexpected response.');
       }
 
-      try {
-        const res = await schemesApi.getNotifications();
-        if (res?.notifications && res.notifications.length > 0) {
-          setNotifications(res.notifications);
-        } else {
-          setNotifications([]);
-        }
-      } catch (error) {
-        setNotifications([]);
-      }
+      setNotifications(res.notifications);
+      setUnreadNotificationCount(res.unreadCount);
+      setNotificationError('');
+      setNotificationLoading(false);
+    }).catch((error) => {
+      if (!active) return;
+      setNotificationError(error.message || 'Unable to load notifications.');
+      setNotificationLoading(false);
+    });
+
+    return () => {
+      active = false;
     };
-
-    loadNotifications();
   }, [user]);
 
   const addFarm = async (farmData) => {
@@ -106,33 +159,82 @@ export const FarmProvider = ({ children }) => {
   const updateSoil = async (farmId, soilData) => {
     try {
       const res = await farmApi.updateSoil(farmId, soilData);
-      if (res?.success === false) {
-        return { success: false, message: res.message || 'Unable to update soil data' };
+      if (res?.success !== true || !res.farm?.soilData) {
+        throw new Error(res?.message || 'Soil update failed without a farm response.');
       }
 
-      const updatedFarm = res?.farm;
+      const updatedFarm = res.farm;
       setFarms((prev) =>
-        prev.map((farm) => (farm._id === farmId ? { ...farm, soilData: updatedFarm?.soilData || { ...farm.soilData, ...soilData } } : farm))
+        prev.map((farm) => (farm._id === farmId ? updatedFarm : farm))
       );
       if (activeFarm?._id === farmId) {
-        setActiveFarm((prev) => ({
-          ...prev,
-          soilData: updatedFarm?.soilData || { ...prev.soilData, ...soilData },
-        }));
+        setActiveFarm(updatedFarm);
       }
-      return { success: true };
+      return { success: true, farm: updatedFarm };
     } catch (error) {
       return { success: false, message: error.message || 'Unable to update soil data' };
     }
   };
 
+  const deleteFarm = async (farmId) => {
+    try {
+      const res = await farmApi.deleteFarm(farmId);
+      if (res?.success !== true) {
+        throw new Error(res?.message || 'Unable to delete farm.');
+      }
+
+      const remainingFarms = farms.filter((farm) => farm._id !== farmId);
+      setFarms((prev) => prev.filter((farm) => farm._id !== farmId));
+      setActiveFarm((currentActiveFarm) => (
+        currentActiveFarm?._id === farmId
+          ? remainingFarms[0] || null
+          : currentActiveFarm
+      ));
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message || 'Unable to delete farm.' };
+    }
+  };
+
   const markAllNotificationsRead = async () => {
     try {
-      await schemesApi.markAllRead();
+      const res = await schemesApi.markAllRead();
+      if (res?.success !== true) {
+        throw new Error(res?.message || 'Unable to mark notifications as read.');
+      }
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
+      setUnreadNotificationCount(0);
+      setNotificationError('');
+      return { success: true };
     } catch (error) {
-      // Intentionally no silent fallback; user will see unread count until backend updates.
+      const message = error.message || 'Unable to mark notifications as read.';
+      setNotificationError(message);
+      return { success: false, message };
     }
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const markNotificationRead = async (notificationId) => {
+    try {
+      const res = await schemesApi.markRead(notificationId);
+      if (res?.success !== true) {
+        throw new Error(res?.message || 'Unable to mark notification as read.');
+      }
+      const wasUnread = notifications.some((notification) => notification._id === notificationId && notification.isRead === false);
+      setNotifications((prev) =>
+        prev.map((notification) => (
+          notification._id === notificationId ? { ...notification, isRead: true } : notification
+        ))
+      );
+      if (wasUnread) {
+        setUnreadNotificationCount((count) => Math.max(0, count - 1));
+      }
+      setNotificationError('');
+      return { success: true };
+    } catch (error) {
+      const message = error.message || 'Unable to mark notification as read.';
+      setNotificationError(message);
+      return { success: false, message };
+    }
   };
 
   return (
@@ -146,11 +248,17 @@ export const FarmProvider = ({ children }) => {
         addFarm,
         updateFarm,
         updateSoil,
+        deleteFarm,
         notifications,
-        setNotifications,
+        unreadNotificationCount,
+        notificationLoading,
+        notificationError,
+        setNotificationError,
+        refreshNotifications,
         showNotificationDrawer,
         setShowNotificationDrawer,
         markAllNotificationsRead,
+        markNotificationRead,
       }}
     >
       {children}

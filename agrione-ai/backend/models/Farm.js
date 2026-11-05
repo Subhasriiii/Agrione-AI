@@ -1,13 +1,26 @@
 const mongoose = require('mongoose');
 
+const measurementProvenanceSchema = new mongoose.Schema({
+  recordedAt: { type: Date, required: true },
+  source: { type: String, enum: ['farmer-entered'], required: true },
+}, { _id: false });
+
 const soilDataSchema = new mongoose.Schema({
-  nitrogen: { type: Number, default: 0 },
-  phosphorus: { type: Number, default: 0 },
-  potassium: { type: Number, default: 0 },
-  pH: { type: Number, default: 7.0 },
-  moisture: { type: Number, default: 0 },
-  organicCarbon: { type: Number, default: 0 },
-  updatedAt: { type: Date, default: Date.now },
+  nitrogen: { type: Number, default: undefined },
+  phosphorus: { type: Number, default: undefined },
+  potassium: { type: Number, default: undefined },
+  pH: { type: Number, default: undefined },
+  moisture: { type: Number, default: undefined },
+  organicCarbon: { type: Number, default: undefined },
+  measurementProvenance: {
+    nitrogen: { type: measurementProvenanceSchema, default: undefined },
+    phosphorus: { type: measurementProvenanceSchema, default: undefined },
+    potassium: { type: measurementProvenanceSchema, default: undefined },
+    pH: { type: measurementProvenanceSchema, default: undefined },
+    moisture: { type: measurementProvenanceSchema, default: undefined },
+    organicCarbon: { type: measurementProvenanceSchema, default: undefined },
+  },
+  updatedAt: { type: Date, default: undefined },
 });
 
 const farmSchema = new mongoose.Schema({

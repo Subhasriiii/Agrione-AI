@@ -1057,3 +1057,338 @@
     font-size: 0.76rem;
   }
 }
+
+/* Dashboard-only layout refinements */
+.dashboard-page {
+  max-width: 1440px;
+}
+
+.dashboard-page .page-header {
+  align-items: flex-end;
+  margin-bottom: 1.4rem;
+}
+
+.dashboard-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.dashboard-alert {
+  margin-bottom: 1rem;
+}
+
+.dashboard-alert-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-metric-card {
+  min-height: 166px;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  border-color: #e2e9e3;
+}
+
+.dashboard-metric-header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dashboard-metric-header .stat-label {
+  line-height: 1.35;
+}
+
+.dashboard-metric-value-row {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dashboard-metric-value-row .stat-val {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+}
+
+.dashboard-metric-unit {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dashboard-metric-details {
+  min-height: 2rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.dashboard-metric-subtitle {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-metric-details .badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+.dashboard-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.dashboard-section-stack {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-panel {
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.dashboard-panel .card-title-bar {
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.dashboard-panel .card-title {
+  line-height: 1.35;
+}
+
+.dashboard-section-note {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.dashboard-nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.dashboard-nutrient-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 105px;
+  padding: 0.9rem 1rem;
+  background: #fbfcfb;
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-md);
+}
+
+.dashboard-nutrient-p {
+  border-left-color: var(--accent-blue);
+}
+
+.dashboard-nutrient-k {
+  border-left-color: var(--accent-amber);
+}
+
+.dashboard-nutrient-ph {
+  grid-column: 1 / -1;
+  min-height: 84px;
+  border-left-color: var(--accent-purple);
+  background: #fcfbff;
+}
+
+.dashboard-nutrient-label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.dashboard-nutrient-item strong {
+  color: var(--text-primary);
+  font-family: var(--font-heading);
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.dashboard-nutrient-unit {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dashboard-retry-button {
+  flex: 0 0 auto;
+}
+
+.dashboard-state {
+  padding: 1.5rem;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.55;
+}
+
+.dashboard-state h3 {
+  margin-bottom: 0.35rem;
+}
+
+.dashboard-market-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dashboard-market-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(145px, 0.85fr) minmax(110px, 0.7fr) minmax(170px, 1.2fr);
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: #fbfcfb;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.dashboard-market-crop,
+.dashboard-market-status {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dashboard-market-crop strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.dashboard-market-crop span,
+.dashboard-market-status span,
+.dashboard-market-price span,
+.dashboard-market-source {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-market-status {
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.dashboard-market-price {
+  color: var(--primary-dark);
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.dashboard-error {
+  text-align: left;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-market-item {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-page .page-header {
+    align-items: flex-start;
+  }
+
+  .dashboard-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .dashboard-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .dashboard-metric-card {
+    min-height: 148px;
+  }
+
+  .dashboard-panel .card-title-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-panel .card-title-bar > .btn,
+  .dashboard-panel .card-title-bar > .dashboard-retry-button {
+    width: 100%;
+  }
+
+  .dashboard-nutrient-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .dashboard-nutrient-ph {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-market-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+  }
+
+  .dashboard-alert-retry {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-alert-retry .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-nutrient-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-nutrient-ph {
+    grid-column: auto;
+  }
+}

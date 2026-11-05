@@ -1,109 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { schemesApi } from '../api/schemesApi';
 import {
-  Landmark,
   Search,
   ExternalLink,
-  CheckCircle2,
-  Filter,
-  ShieldCheck,
-  IndianRupee,
-  Layers,
-  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 
-const DEFAULT_SCHEMES = [
-  {
-    name: 'PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)',
-    description: 'Direct income support of ₹6,000 per year to farmer families, paid in three equal installments directly into bank accounts via DBT.',
-    eligibility: 'All land-holding farmer families with cultivable land.',
-    benefits: '₹6,000 per year in 3 installments of ₹2,000 each.',
-    category: 'subsidy',
-    targetFarmers: 'Small and marginal farmers',
-    state: 'All India',
-    applicationUrl: 'https://pmkisan.gov.in',
-  },
-  {
-    name: 'PMFBY (Pradhan Mantri Fasal Bima Yojana)',
-    description: 'Comprehensive crop loss insurance coverage against non-preventable natural risks from pre-sowing to post-harvest stages.',
-    eligibility: 'All farmers including sharecroppers and tenant farmers growing notified crops in notified areas.',
-    benefits: 'Maximum premium payable by farmer: 2% for Kharif, 1.5% for Rabi, 5% for commercial/horticultural crops.',
-    category: 'insurance',
-    targetFarmers: 'All farmers',
-    state: 'All India',
-    applicationUrl: 'https://pmfby.gov.in',
-  },
-  {
-    name: 'Kisan Credit Card (KCC) Scheme',
-    description: 'Concessional credit facility enabling farmers to meet short-term crop production, post-harvest, and farm maintenance requirements.',
-    eligibility: 'Individual/joint borrowers, tenant farmers, self-help groups (SHGs).',
-    benefits: 'Credit limit up to ₹3 lakh at effective 4% annual interest with prompt repayment incentive.',
-    category: 'loan',
-    targetFarmers: 'All farmers',
-    state: 'All India',
-    applicationUrl: 'https://www.pmkisan.gov.in/kcc',
-  },
-  {
-    name: 'Micro Irrigation Fund (MIF / PMKSY)',
-    description: 'Financial subsidy for adopting water-saving drip and sprinkler systems under Per Drop More Crop initiative.',
-    eligibility: 'Farmers having assured source of irrigation water.',
-    benefits: '55% subsidy for small and marginal farmers, 45% for other farmers.',
-    category: 'equipment',
-    targetFarmers: 'Small, marginal & commercial growers',
-    state: 'All India',
-    applicationUrl: 'https://pmksy.gov.in',
-  },
-  {
-    name: 'Paramparagat Krishi Vikas Yojana (PKVY)',
-    description: 'Promotes certified organic farming through participatory guarantee systems (PGS) in 50-acre farmer clusters.',
-    eligibility: 'Groups of 50 or more farmers forming 50-acre contiguous clusters.',
-    benefits: '₹50,000 per hectare financial support for 3 years towards organic inputs and certification.',
-    category: 'subsidy',
-    targetFarmers: 'Organic farming groups',
-    state: 'All India',
-    applicationUrl: 'https://pgsindia-ncof.gov.in',
-  },
-  {
-    name: 'Soil Health Card Scheme',
-    description: 'Biennial soil sample analysis providing macro/micro nutrient status and crop-wise fertilizer dosage recommendations.',
-    eligibility: 'All landholding farmers across India.',
-    benefits: 'Free soil health card every 2 years with custom nutrient management advice.',
-    category: 'subsidy',
-    targetFarmers: 'All farmers',
-    state: 'All India',
-    applicationUrl: 'https://soilhealth.dac.gov.in',
-  },
-  {
-    name: 'eNAM (National Agriculture Market)',
-    description: 'Pan-India electronic trading portal networking existing APMC mandis to create a unified national market for commodities.',
-    eligibility: 'Farmers, traders, commission agents registered with APMCs.',
-    benefits: 'Transparent electronic price bidding, weighment, and direct digital payments.',
-    category: 'market',
-    targetFarmers: 'All farmers',
-    state: 'All India',
-    applicationUrl: 'https://enam.gov.in',
-  },
-];
+const optionalText = (value) => (typeof value === 'string' ? value : '');
+
+const normalizeSchemes = (response) => {
+  if (response?.success !== true || !Array.isArray(response.schemes)) {
+    throw new Error(response?.message || 'The schemes service returned an unexpected response.');
+  }
+
+  if (!response.schemes.every((scheme) => (
+    scheme &&
+    typeof scheme === 'object' &&
+    !Array.isArray(scheme) &&
+    typeof scheme.name === 'string' &&
+    scheme.name.trim().length > 0
+  ))) {
+    throw new Error('The schemes service returned invalid scheme records.');
+  }
+
+  return response.schemes.map((scheme) => ({
+    ...scheme,
+    name: scheme.name.trim(),
+    description: optionalText(scheme.description),
+    benefits: optionalText(scheme.benefits),
+    eligibility: optionalText(scheme.eligibility),
+    category: optionalText(scheme.category),
+    state: optionalText(scheme.state),
+    applicationUrl: optionalText(scheme.applicationUrl),
+  }));
+};
+
+const getSafeApplicationUrl = (value) => {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+  } catch {
+    return '';
+  }
+};
 
 const GovernmentSchemes = () => {
-  const [schemes, setSchemes] = useState(DEFAULT_SCHEMES);
+  const [schemes, setSchemes] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const requestSchemes = useCallback(async () => {
+    const response = await schemesApi.getSchemes();
+    return normalizeSchemes(response);
+  }, []);
+
+  const fetchSchemes = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setSchemes(await requestSchemes());
+    } catch (requestError) {
+      setSchemes([]);
+      setError(requestError.message || 'Unable to load government schemes.');
+    } finally {
+      setLoading(false);
+    }
+  }, [requestSchemes]);
 
   useEffect(() => {
-    const fetchSchemes = async () => {
-      setLoading(true);
+    let cancelled = false;
+    const loadInitialSchemes = async () => {
       try {
-        const res = await schemesApi.getSchemes();
-        if (res?.schemes && res.schemes.length > 0) {
-          setSchemes(res.schemes);
-        }
-      } catch (e) {}
-      setLoading(false);
+        const nextSchemes = await requestSchemes();
+        if (cancelled) return;
+        setSchemes(nextSchemes);
+        setError('');
+      } catch (requestError) {
+        if (cancelled) return;
+        setSchemes([]);
+        setError(requestError.message || 'Unable to load government schemes.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-    fetchSchemes();
-  }, []);
+
+    loadInitialSchemes();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestSchemes]);
 
   const categories = [
     { id: 'all', label: 'All Schemes' },
@@ -115,10 +103,14 @@ const GovernmentSchemes = () => {
   ];
 
   const filteredSchemes = schemes.filter((s) => {
+    const normalizedSearch = search.toLowerCase();
     const matchesSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase()) ||
-      s.benefits.toLowerCase().includes(search.toLowerCase());
+      s.name.toLowerCase().includes(normalizedSearch) ||
+      s.description.toLowerCase().includes(normalizedSearch) ||
+      s.benefits.toLowerCase().includes(normalizedSearch) ||
+      s.eligibility.toLowerCase().includes(normalizedSearch) ||
+      s.category.toLowerCase().includes(normalizedSearch) ||
+      s.state.toLowerCase().includes(normalizedSearch);
     const matchesCategory =
       selectedCategory === 'all' || s.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -136,9 +128,10 @@ const GovernmentSchemes = () => {
           </p>
         </div>
 
-        <span className="badge badge-success">
-          Updated for Financial Year 2026-27
-        </span>
+      </div>
+
+      <div className="alert" role="note" style={{ marginBottom: '1.25rem' }}>
+        Scheme descriptions are general references. Eligibility, benefits, application availability, and conditions may change; verify current details with the official portal or your local agriculture office.
       </div>
 
       {/* Category Pills & Search */}
@@ -199,11 +192,30 @@ const GovernmentSchemes = () => {
         </div>
       </div>
 
-      {/* Scheme Cards Grid */}
+      {loading ? (
+        <div className="glass-panel" role="status" style={{ padding: '1.5rem' }}>
+          Loading government schemes...
+        </div>
+      ) : error ? (
+        <div className="glass-panel" role="alert" style={{ padding: '1.5rem' }}>
+          <p>Unable to load government schemes: {error}</p>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={fetchSchemes} disabled={loading}>
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      ) : schemes.length === 0 ? (
+        <div className="glass-panel" role="status" style={{ padding: '1.5rem' }}>
+          No government schemes are currently available.
+        </div>
+      ) : filteredSchemes.length === 0 ? (
+        <div className="glass-panel" role="status" style={{ padding: '1.5rem' }}>
+          No matching schemes found. Try a different search or category.
+        </div>
+      ) : (
       <div className="grid-2">
-        {filteredSchemes.map((scheme, idx) => (
+        {filteredSchemes.map((scheme) => (
           <div
-            key={idx}
+            key={scheme._id || `${scheme.name}-${scheme.state}`}
             className="glass-panel"
             style={{
               padding: '1.75rem',
@@ -226,12 +238,13 @@ const GovernmentSchemes = () => {
                 {scheme.name}
               </h3>
 
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
-                {scheme.description}
-              </p>
+              {scheme.description && (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                  {scheme.description}
+                </p>
+              )}
 
-              {/* Financial Benefits Box */}
-              <div
+              {scheme.benefits && <div
                 style={{
                   background: 'rgba(16, 185, 129, 0.08)',
                   border: '1px solid rgba(16, 185, 129, 0.2)',
@@ -246,19 +259,20 @@ const GovernmentSchemes = () => {
                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                   {scheme.benefits}
                 </div>
-              </div>
+              </div>}
 
-              {/* Eligibility */}
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                <strong>Eligibility:</strong> {scheme.eligibility}
-              </div>
+              {scheme.eligibility && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                  <strong>Eligibility:</strong> {scheme.eligibility}
+                </div>
+              )}
             </div>
 
             {/* Application link */}
             <div>
-              {scheme.applicationUrl ? (
+              {getSafeApplicationUrl(scheme.applicationUrl) ? (
                 <a
-                  href={scheme.applicationUrl}
+                  href={getSafeApplicationUrl(scheme.applicationUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-secondary btn-sm"
@@ -275,6 +289,7 @@ const GovernmentSchemes = () => {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 };

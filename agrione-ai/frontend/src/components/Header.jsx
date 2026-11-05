@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useFarm } from '../context/FarmContext';
 import {
@@ -7,10 +7,6 @@ import {
   ChevronDown,
   User,
   LogOut,
-  Sun,
-  Sprout,
-  ShieldCheck,
-  PlusCircle,
   Menu,
 } from 'lucide-react';
 
@@ -20,14 +16,13 @@ const Header = ({ onOpenAuth, onToggleSidebar }) => {
     farms,
     activeFarm,
     setActiveFarm,
-    notifications,
+    unreadNotificationCount,
+    notificationError,
     setShowNotificationDrawer,
   } = useFarm();
 
   const [farmDropdownOpen, setFarmDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <header className="app-header">
@@ -183,10 +178,10 @@ const Header = ({ onOpenAuth, onToggleSidebar }) => {
             color: 'var(--text-secondary)',
             transition: 'all var(--transition-fast)',
           }}
-          title="Alerts & Notifications"
+          title={notificationError || 'Alerts & Notifications'}
         >
           <Bell size={18} />
-          {unreadCount > 0 && (
+          {!notificationError && unreadNotificationCount > 0 && (
             <span
               style={{
                 position: 'absolute',
@@ -205,7 +200,7 @@ const Header = ({ onOpenAuth, onToggleSidebar }) => {
                 boxShadow: '0 0 8px rgba(239, 68, 68, 0.6)',
               }}
             >
-              {unreadCount}
+              {unreadNotificationCount}
             </span>
           )}
         </button>

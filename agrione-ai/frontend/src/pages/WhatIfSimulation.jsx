@@ -1,13 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFarm } from '../context/FarmContext';
-import { simulationApi } from '../api/simulationApi';
 import {
   Sliders,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
   AlertTriangle,
-  CheckCircle2,
   RefreshCw,
   CloudRain,
   Thermometer,
@@ -15,70 +11,85 @@ import {
   Bug,
 } from 'lucide-react';
 
+const getFarmScenarioDetails = (farm) => ({
+  baseCrop: farm?.currentCrop || '',
+  baseArea: Number.isFinite(farm?.area) && farm.area > 0 ? farm.area : '',
+});
+
+const getScenarioPrecautions = (scenario) => {
+  const precautions = [];
+
+  if (scenario.rainfallChangePercent < 0) {
+    precautions.push('This scenario assumes rainfall below its reference level. Check local forecasts and actual soil moisture before making water-management decisions.');
+  } else if (scenario.rainfallChangePercent > 0) {
+    precautions.push('This scenario assumes rainfall above its reference level. Monitor local rainfall and field drainage for waterlogging conditions.');
+  }
+
+  if (scenario.temperatureChangeC > 0) {
+    precautions.push('This scenario assumes higher temperatures. Monitor crop and weather conditions, and consult local agricultural guidance before taking action.');
+  }
+
+  if (scenario.fertilizerBudgetChangePercent !== 0) {
+    precautions.push(`This scenario changes the fertilizer budget by ${scenario.fertilizerBudgetChangePercent}%; a budget change does not determine a safe application rate. Base any input decisions on soil-test results and local crop guidance.`);
+  }
+
+  if (scenario.pestOutbreak !== 'none') {
+    precautions.push(`This scenario assumes ${scenario.pestOutbreak} pest pressure; it is not a diagnosis. Inspect the crop and seek local expert guidance before considering any treatment.`);
+  }
+
+  return precautions;
+};
+
 const WhatIfSimulation = () => {
   const { activeFarm } = useFarm();
-  const [loading, setLoading] = useState(false);
-
   const [simInputs, setSimInputs] = useState({
-    baseCrop: activeFarm?.primaryCrop || 'Cotton',
-    baseArea: activeFarm?.totalArea || 5.5,
-    rainfallChangePercent: -20, // -50% to +50%
-    temperatureChangeC: 2.0, // 0 to 5
-    fertilizerBudgetChangePercent: 0, // -30% to +30%
-    pestOutbreak: 'low', // 'none' | 'low' | 'moderate' | 'severe'
+    rainfallChangePercent: 0,
+    temperatureChangeC: 0,
+    fertilizerBudgetChangePercent: 0,
+    pestOutbreak: 'none',
   });
+  const farmDetails = getFarmScenarioDetails(activeFarm);
 
-  // Calculate dynamic simulation outcome
-  const calculateSimOutcome = () => {
-    let yieldChange = 0;
-    // Rainfall effect
-    if (simInputs.rainfallChangePercent < 0) {
-      yieldChange += simInputs.rainfallChangePercent * 0.45; // drought drops yield
-    } else {
-      yieldChange += Math.min(10, simInputs.rainfallChangePercent * 0.2); // moderate rain helps, excess hurts
-      if (simInputs.rainfallChangePercent > 30) yieldChange -= (simInputs.rainfallChangePercent - 30) * 0.3;
-    }
-    // Temp effect
-    yieldChange -= simInputs.temperatureChangeC * 4.2;
-    // Fertilizer effect
-    if (simInputs.fertilizerBudgetChangePercent < 0) {
-      yieldChange += simInputs.fertilizerBudgetChangePercent * 0.35;
-    } else {
-      yieldChange += simInputs.fertilizerBudgetChangePercent * 0.2;
-    }
-    // Pest effect
-    if (simInputs.pestOutbreak === 'low') yieldChange -= 6;
-    if (simInputs.pestOutbreak === 'moderate') yieldChange -= 18;
-    if (simInputs.pestOutbreak === 'severe') yieldChange -= 35;
+  const hasScenarioChanges = simInputs.rainfallChangePercent !== 0 ||
+    simInputs.temperatureChangeC !== 0 ||
+    simInputs.fertilizerBudgetChangePercent !== 0 ||
+    simInputs.pestOutbreak !== 'none';
+  const hasFarmScenarioDetails = Boolean(farmDetails.baseCrop) &&
+    Number.isFinite(farmDetails.baseArea) &&
+    farmDetails.baseArea > 0;
+  const precautions = hasScenarioChanges ? getScenarioPrecautions(simInputs) : [];
 
-    yieldChange = Math.round(yieldChange);
-
-    const baseProfit = 185000;
-    const simulatedProfit = Math.round(baseProfit * (1 + yieldChange / 100));
-    const profitDelta = simulatedProfit - baseProfit;
-
-    let riskLevel = 'Low';
-    if (yieldChange <= -10 && yieldChange > -25) riskLevel = 'Moderate';
-    else if (yieldChange <= -25 && yieldChange > -40) riskLevel = 'High';
-    else if (yieldChange <= -40) riskLevel = 'Severe Vulnerability';
-
-    return {
-      yieldChange,
-      simulatedProfit,
-      profitDelta,
-      riskLevel,
-    };
+  const resetScenario = () => {
+    setSimInputs({
+      rainfallChangePercent: 0,
+      temperatureChangeC: 0,
+      fertilizerBudgetChangePercent: 0,
+      pestOutbreak: 'none',
+    });
   };
 
-  const outcome = calculateSimOutcome();
-
-  const handleServerSim = async () => {
-    setLoading(true);
-    try {
-      await simulationApi.simulate(simInputs);
-    } catch (e) {}
-    setLoading(false);
+  const updateScenario = (field, value) => {
+    setSimInputs((previous) => ({ ...previous, [field]: value }));
   };
+
+  if (!activeFarm) {
+    return (
+      <div className="page-container">
+        <div className="page-header">
+          <div className="page-title-group">
+            <h1>
+              What-If Scenario <span className="gradient-text">Farm Simulator</span>
+            </h1>
+          </div>
+        </div>
+        <div className="glass-panel" style={{ padding: '1.75rem' }}>
+          <h2>No active farm selected</h2>
+          <p>Select or create a farm before reviewing its scenario conditions.</p>
+          <Link to="/farms" className="btn btn-primary">Go to My Farms</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container">
@@ -88,9 +99,21 @@ const WhatIfSimulation = () => {
             What-If Scenario <span className="gradient-text">Farm Simulator</span>
           </h1>
           <p className="page-subtitle">
-            Simulate climate shocks, drought stress, fertilizer adjustments, and pest pressure to test farm resilience.
+            Review qualitative scenario conditions. The controls do not generate yield or financial predictions.
           </p>
         </div>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
+        <strong>Selected farm:</strong> {activeFarm.farmName || 'Unnamed farm'}
+        <span> · Crop: {farmDetails.baseCrop || 'Not set'}</span>
+        <span> · Area: {farmDetails.baseArea || 'Not set'}{farmDetails.baseArea ? ' acres' : ''}</span>
+        {!hasFarmScenarioDetails && (
+          <div className="alert" role="status" style={{ marginTop: '0.75rem' }}>
+            Set the farm’s current crop and a positive acreage in My Farms to contextualize this scenario.
+            <Link to="/farms" className="btn btn-secondary btn-sm" style={{ marginLeft: '0.75rem' }}>Manage farm</Link>
+          </div>
+        )}
       </div>
 
       <div className="grid-split-2-1">
@@ -102,16 +125,8 @@ const WhatIfSimulation = () => {
               Stress Test Controls
             </div>
             <button
-              onClick={() =>
-                setSimInputs({
-                  baseCrop: 'Cotton',
-                  baseArea: 5.5,
-                  rainfallChangePercent: 0,
-                  temperatureChangeC: 0,
-                  fertilizerBudgetChangePercent: 0,
-                  pestOutbreak: 'none',
-                })
-              }
+              type="button"
+              onClick={resetScenario}
               className="btn btn-secondary btn-sm"
               style={{ fontSize: '0.75rem' }}
             >
@@ -142,7 +157,7 @@ const WhatIfSimulation = () => {
                 step="5"
                 style={{ width: '100%', accentColor: '#38bdf8' }}
                 value={simInputs.rainfallChangePercent}
-                onChange={(e) => setSimInputs({ ...simInputs, rainfallChangePercent: Number(e.target.value) })}
+                onChange={(e) => updateScenario('rainfallChangePercent', Number(e.target.value))}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 <span>-50% (Drought)</span>
@@ -168,7 +183,7 @@ const WhatIfSimulation = () => {
                 step="0.5"
                 style={{ width: '100%', accentColor: '#f59e0b' }}
                 value={simInputs.temperatureChangeC}
-                onChange={(e) => setSimInputs({ ...simInputs, temperatureChangeC: Number(e.target.value) })}
+                onChange={(e) => updateScenario('temperatureChangeC', Number(e.target.value))}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 <span>0°C (Seasonal Avg)</span>
@@ -181,7 +196,7 @@ const WhatIfSimulation = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                  <Layers size={16} style={{ color: '#10b981' }} /> Fertilizer Input Dosage Change
+                  <Layers size={16} style={{ color: '#10b981' }} /> Fertilizer Budget Scenario Change
                 </span>
                 <span style={{ fontWeight: 700, color: simInputs.fertilizerBudgetChangePercent >= 0 ? '#34d399' : '#f87171' }}>
                   {simInputs.fertilizerBudgetChangePercent > 0 ? `+${simInputs.fertilizerBudgetChangePercent}` : simInputs.fertilizerBudgetChangePercent}%
@@ -194,7 +209,7 @@ const WhatIfSimulation = () => {
                 step="5"
                 style={{ width: '100%', accentColor: '#10b981' }}
                 value={simInputs.fertilizerBudgetChangePercent}
-                onChange={(e) => setSimInputs({ ...simInputs, fertilizerBudgetChangePercent: Number(e.target.value) })}
+                onChange={(e) => updateScenario('fertilizerBudgetChangePercent', Number(e.target.value))}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 <span>-30% (Under-fertilized)</span>
@@ -213,7 +228,7 @@ const WhatIfSimulation = () => {
                   <button
                     key={lvl}
                     type="button"
-                    onClick={() => setSimInputs({ ...simInputs, pestOutbreak: lvl })}
+                    onClick={() => updateScenario('pestOutbreak', lvl)}
                     style={{
                       padding: '0.6rem',
                       borderRadius: 'var(--radius-sm)',
@@ -244,82 +259,39 @@ const WhatIfSimulation = () => {
           </div>
         </div>
 
-        {/* Real-time Projected Impact */}
+        {/* Qualitative scenario assessment */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="glass-panel" style={{ padding: '1.75rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Projected Harvest Impact
-            </div>
-            <div
-              style={{
-                fontSize: '3.2rem',
-                fontWeight: 800,
-                color: outcome.yieldChange >= 0 ? '#34d399' : '#f87171',
-                fontFamily: 'var(--font-heading)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-              }}
-            >
-              {outcome.yieldChange >= 0 ? (
-                <TrendingUp size={36} />
-              ) : (
-                <TrendingDown size={36} />
-              )}
-              {outcome.yieldChange > 0 ? `+${outcome.yieldChange}` : outcome.yieldChange}%
-            </div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-              Simulated Net Margin:{' '}
-              <strong style={{ color: outcome.profitDelta >= 0 ? '#34d399' : '#f87171' }}>
-                ₹{outcome.simulatedProfit.toLocaleString()}
-              </strong>{' '}
-              ({outcome.profitDelta >= 0 ? `+₹${outcome.profitDelta.toLocaleString()}` : `-₹${Math.abs(outcome.profitDelta).toLocaleString()}`})
-            </div>
-            <div style={{ marginTop: '0.75rem' }}>
-              <span
-                className={`badge ${
-                  outcome.riskLevel === 'Low'
-                    ? 'badge-success'
-                    : outcome.riskLevel === 'Moderate'
-                    ? 'badge-warning'
-                    : 'badge-danger'
-                }`}
-              >
-                {outcome.riskLevel}
-              </span>
-            </div>
-          </div>
-
-          {/* Actionable Contingency Recommendations */}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
-              CONTINGENCY ADAPTATION STRATEGY
+              QUALITATIVE SCENARIO ASSESSMENT
             </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {simInputs.rainfallChangePercent < -15 && (
-                <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.4rem' }}>
-                  <CheckCircle2 size={14} style={{ color: '#38bdf8', flexShrink: 0, marginTop: 2 }} />
-                  <span>Switch to alternate furrow irrigation; apply kaolin clay spray (3%) to reduce foliar transpiration.</span>
-                </li>
-              )}
-              {simInputs.temperatureChangeC >= 2.0 && (
-                <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.4rem' }}>
-                  <CheckCircle2 size={14} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 2 }} />
-                  <span>Irrigate during evening hours; spray 1% Potassium Nitrate (13-0-45) to enhance crop heat tolerance.</span>
-                </li>
-              )}
-              {simInputs.pestOutbreak !== 'none' && (
-                <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.4rem' }}>
-                  <CheckCircle2 size={14} style={{ color: '#f87171', flexShrink: 0, marginTop: 2 }} />
-                  <span>Install solar light traps and release Trichogramma egg parasitoids @ 50,000/acre.</span>
-                </li>
-              )}
-              <li style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.4rem' }}>
-                <CheckCircle2 size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
-                <span>Verify PMFBY crop insurance enrolment to guarantee financial downside protection.</span>
-              </li>
-            </ul>
+            <span className="badge badge-info">Qualitative only · not a trained ML prediction</span>
+            {!hasFarmScenarioDetails ? (
+              <p role="status" style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>
+                Scenario conditions are set, but a farm crop and acreage are needed before this assessment can be contextualized.
+              </p>
+            ) : !hasScenarioChanges ? (
+              <p role="status" style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>
+                Neutral scenario selected. Adjust a control to review relevant considerations.
+              </p>
+            ) : (
+              <>
+                <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>
+                  For {farmDetails.baseCrop} on {farmDetails.baseArea} acres, these are scenario assumptions only. No yield, risk score, revenue, profit, or margin is predicted.
+                </p>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: 0 }}>
+                  {precautions.map((precaution) => (
+                    <li key={precaution} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem' }}>
+                      <AlertTriangle size={15} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 2 }} />
+                      <span>{precaution}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
+                  Check actual field conditions and local agricultural guidance before taking action. This page does not determine treatment rates or insurance eligibility.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

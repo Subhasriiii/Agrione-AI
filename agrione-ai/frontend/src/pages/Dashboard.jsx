@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFarm } from '../context/FarmContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,71 +8,110 @@ import {
   Droplets,
   Activity,
   IndianRupee,
-  Sun,
-  Wind,
   AlertTriangle,
   ArrowRight,
-  TrendingUp,
   FlaskConical,
-  Bug,
-  Calculator,
-  BotMessageSquare,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { marketApi } from '../api/marketApi';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from 'recharts';
 
-const MOCK_MANDI_PRICES = [
-  { crop: 'Cotton', price: 6500, minPrice: 6000, maxPrice: 7000, market: 'Adilabad' },
-  { crop: 'Chilli', price: 12000, minPrice: 10000, maxPrice: 14000, market: 'Guntur' },
-  { crop: 'Rice', price: 2200, minPrice: 2000, maxPrice: 2400, market: 'Guntur' },
-  { crop: 'Tomato', price: 2500, minPrice: 1500, maxPrice: 3500, market: 'Madanapalle' },
-  { crop: 'Wheat', price: 2300, minPrice: 2100, maxPrice: 2500, market: 'Hapur' },
-];
+const requestMarketData = async () => {
+  const res = await marketApi.getMarketData();
+  if (!Array.isArray(res?.marketData)) {
+    throw new Error(res?.message || 'The market data service returned an unexpected response.');
+  }
 
-const HISTORICAL_HEALTH = [
-  { month: 'Apr', score: 68 },
-  { month: 'May', score: 72 },
-  { month: 'Jun', score: 76 },
-  { month: 'Jul', score: 81 },
-  { month: 'Aug', score: 85 },
-  { month: 'Sep', score: 88 },
-];
+  return {
+    marketData: res.marketData.filter((item) =>
+      item &&
+      typeof item.crop === 'string' &&
+      typeof item.market === 'string' &&
+      typeof item.price === 'number' &&
+      Number.isFinite(item.price)
+    ).slice(0, 5),
+    note: typeof res.note === 'string' ? res.note : '',
+  };
+};
+
+const getRecordedSoilValue = (soilData, field) => {
+  const value = soilData?.[field];
+  const provenance = soilData?.measurementProvenance?.[field];
+  const recordedAt = provenance?.recordedAt;
+
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    provenance?.source === 'farmer-entered' &&
+    Boolean(recordedAt) &&
+    Number.isFinite(Date.parse(recordedAt))
+    ? value
+    : 'Not recorded';
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { activeFarm, loading, farmError, notifications, setShowNotificationDrawer } = useFarm();
-  const [mandiRates, setMandiRates] = useState([]);
+  const {
+    activeFarm,
+    loading,
+    farmError,
+    unreadNotificationCount,
+    notificationLoading,
+    notificationError,
+    refreshNotifications,
+    setShowNotificationDrawer,
+  } = useFarm();
+  const [marketData, setMarketData] = useState([]);
+  const [marketNote, setMarketNote] = useState('');
+  const [marketLoading, setMarketLoading] = useState(true);
+  const [marketError, setMarketError] = useState('');
 
-  useEffect(() => {
-    const fetchMarket = async () => {
-      try {
-        const res = await marketApi.getMarketData();
-        if (res?.marketData && res.marketData.length > 0) {
-          setMandiRates(res.marketData.slice(0, 5));
-        }
-      } catch (error) {
-        setMandiRates([]);
-      }
-    };
-
-    fetchMarket();
+  const fetchMarket = useCallback(async () => {
+    try {
+      const result = await requestMarketData();
+      setMarketData(result.marketData);
+      setMarketNote(result.note);
+      setMarketError('');
+    } catch (error) {
+      setMarketData([]);
+      setMarketNote('');
+      setMarketError(error.message || 'Unable to load market data.');
+    } finally {
+      setMarketLoading(false);
+    }
   }, []);
 
-  const soil = activeFarm?.soilData || {};
+  useEffect(() => {
+    let active = true;
+    requestMarketData().then((result) => {
+      if (!active) return;
+      setMarketData(result.marketData);
+      setMarketNote(result.note);
+      setMarketError('');
+      setMarketLoading(false);
+    }).catch((error) => {
+      if (!active) return;
+      setMarketData([]);
+      setMarketNote('');
+      setMarketError(error.message || 'Unable to load market data.');
+      setMarketLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const featuredMarket = marketData[0];
+  const soilData = activeFarm?.soilData;
+  const marketStatus = featuredMarket
+    ? featuredMarket.status === 'VERIFIED' && featuredMarket.source
+      ? 'VERIFIED'
+      : 'INDICATIVE'
+    : 'NOT AVAILABLE';
 
   if (!user) {
     return (
-      <div className="page-container">
+      <div className="page-container dashboard-page">
         <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
           <h2>Please sign in to view your farm dashboard</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Your personalized soil, crop, and farm data will appear after login.</p>
@@ -81,15 +120,8 @@ const Dashboard = () => {
     );
   }
 
-  const nutrientData = [
-    { name: 'Nitrogen (N)', current: soil.nitrogen || 0, optimal: 140, unit: 'kg/ha' },
-    { name: 'Phosphorus (P)', current: soil.phosphorus || 0, optimal: 40, unit: 'kg/ha' },
-    { name: 'Potassium (K)', current: soil.potassium || 0, optimal: 200, unit: 'kg/ha' },
-    { name: 'pH Level', current: soil.pH ? soil.pH * 20 : 0, optimal: 140, unit: 'score' },
-  ];
-
   return (
-    <div className="page-container">
+    <div className="page-container dashboard-page">
       <div className="page-header">
         <div className="page-title-group">
           <h1>
@@ -107,14 +139,14 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="dashboard-header-actions">
           <button
             onClick={() => setShowNotificationDrawer(true)}
             className="btn btn-secondary btn-sm"
-            disabled={notifications.length === 0}
+            title={notificationError || 'Open unread notifications'}
           >
             <AlertTriangle size={15} style={{ color: '#f59e0b' }} />
-            {notifications.length} Active Warnings
+            {notificationError ? 'Alerts unavailable' : notificationLoading ? 'Loading alerts...' : `${unreadNotificationCount} Active Warnings`}
           </button>
           <Link to="/assistant" className="btn btn-primary btn-sm">
             <Sparkles size={15} />
@@ -123,36 +155,42 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {farmError && <div className="alert" role="alert">Unable to load farm data: {farmError}</div>}
+      {farmError && <div className="alert dashboard-alert" role="alert">Unable to load farm data: {farmError}</div>}
+      {notificationError && (
+        <div className="alert dashboard-alert dashboard-alert-retry" role="alert">
+          <span>Unable to load notifications: {notificationError}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={refreshNotifications} disabled={notificationLoading}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {loading ? (
-        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>Loading farm data...</div>
+        <div className="glass-panel dashboard-state" role="status">Loading farm data...</div>
       ) : !activeFarm && farmError ? null : !activeFarm ? (
-        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+        <div className="glass-panel dashboard-state">
           <h3>No farm registered yet.</h3>
           <p style={{ color: 'var(--text-secondary)' }}>Add your first farm to get started.</p>
         </div>
       ) : (
         <>
-          <div className="grid-4">
+          <div className="dashboard-metrics">
             <MetricCard
               title="Soil Health Index"
-              value={soil.pH ? 'Healthy' : 'N/A'}
-              unit={soil.pH ? '/ 100' : ''}
+              value="Not available"
               icon={Activity}
-              subtitle={soil.pH ? 'This farm has soil measurements recorded.' : 'No soil measurements yet'}
-              badgeText={soil.pH ? 'GOOD' : 'EMPTY'}
-              badgeType={soil.pH ? 'success' : 'info'}
+              subtitle="No calculated soil health score is recorded"
+              badgeText="UNAVAILABLE"
+              badgeType="info"
               glowColor="emerald"
             />
 
             <MetricCard
               title="Soil Moisture"
-              value={soil.moisture ?? 'N/A'}
-              unit={soil.moisture !== undefined ? '%' : ''}
+              value="Not recorded"
               icon={Droplets}
-              subtitle={soil.moisture !== undefined ? 'Based on latest moisture record' : 'No moisture record'}
-              badgeText={soil.moisture !== undefined ? 'STABLE' : 'WAITING'}
+              subtitle="Measurement provenance is not available"
+              badgeText="UNAVAILABLE"
               badgeType="info"
               glowColor="blue"
             />
@@ -170,59 +208,114 @@ const Dashboard = () => {
 
             <MetricCard
               title="Market Data"
-              value={mandiRates.length > 0 ? mandiRates[0].crop : 'N/A'}
-              unit={mandiRates.length > 0 ? `₹${mandiRates[0].price}` : ''}
+              value={marketLoading ? 'Loading...' : marketError ? 'Not available' : featuredMarket?.crop || 'Not available'}
+              unit={featuredMarket ? `₹${Number(featuredMarket.price).toLocaleString()}` : ''}
               icon={IndianRupee}
-              subtitle={mandiRates.length > 0 ? `${mandiRates[0].market}` : 'No live mandi data available'}
-              badgeText={mandiRates.length > 0 ? 'LIVE' : 'WAITING'}
-              badgeType="warning"
+              subtitle={marketLoading ? 'Fetching market records' : marketError ? marketError : featuredMarket?.market || 'No market records available'}
+              badgeText={marketLoading ? 'LOADING' : marketError ? 'ERROR' : marketStatus}
+              badgeType={marketStatus === 'VERIFIED' ? 'success' : marketStatus === 'INDICATIVE' ? 'warning' : 'info'}
               glowColor="amber"
             />
           </div>
 
-          <div className="grid-split-2-1">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+          <div className="dashboard-sections">
+            <div className="dashboard-section-stack">
+              <div className="glass-panel dashboard-panel">
                 <div className="card-title-bar">
                   <div className="card-title">
                     <FlaskConical size={20} style={{ color: '#34d399' }} />
-                    Soil Nutrient Balance (NPK & pH)
+                    Soil Measurements
                   </div>
                   <Link to="/soil" className="btn btn-secondary btn-sm">
                     View Full Soil Report <ArrowRight size={14} />
                   </Link>
                 </div>
 
-                <div style={{ height: 200, width: '100%', marginTop: '1rem' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={nutrientData} barGap={8}>
-                      <XAxis dataKey="name" stroke="#64748b" />
-                      <YAxis stroke="#64748b" />
-                      <Tooltip contentStyle={{ backgroundColor: '#0d171b', borderColor: '#34d399', borderRadius: 8 }} />
-                      <Bar dataKey="current" name="Current Value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="optimal" name="Target Optimal" fill="#38bdf8" radius={[4, 4, 0, 0]} opacity={0.6} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <p className="dashboard-section-note">
+                  Only soil measurements with valid recorded provenance are displayed.
+                </p>
+                <div className="dashboard-nutrient-grid">
+                  <div className="dashboard-nutrient-item dashboard-nutrient-n">
+                    <span className="dashboard-nutrient-label">Nitrogen (N)</span>
+                    <strong>{getRecordedSoilValue(soilData, 'nitrogen')}</strong>
+                    <span className="dashboard-nutrient-unit">kg/ha</span>
+                  </div>
+                  <div className="dashboard-nutrient-item dashboard-nutrient-p">
+                    <span className="dashboard-nutrient-label">Phosphorus (P)</span>
+                    <strong>{getRecordedSoilValue(soilData, 'phosphorus')}</strong>
+                    <span className="dashboard-nutrient-unit">kg/ha</span>
+                  </div>
+                  <div className="dashboard-nutrient-item dashboard-nutrient-k">
+                    <span className="dashboard-nutrient-label">Potassium (K)</span>
+                    <strong>{getRecordedSoilValue(soilData, 'potassium')}</strong>
+                    <span className="dashboard-nutrient-unit">kg/ha</span>
+                  </div>
+                  <div className="dashboard-nutrient-item dashboard-nutrient-ph">
+                    <span className="dashboard-nutrient-label">pH Level</span>
+                    <strong>{getRecordedSoilValue(soilData, 'pH')}</strong>
+                    <span className="dashboard-nutrient-unit">pH scale: 0–14</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="glass-panel dashboard-panel">
+                <div className="card-title-bar">
+                  <div className="card-title">
+                    <IndianRupee size={20} style={{ color: '#f59e0b' }} />
+                    Market Prices
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm dashboard-retry-button"
+                    onClick={() => {
+                      setMarketLoading(true);
+                      setMarketError('');
+                      setMarketData([]);
+                      setMarketNote('');
+                      fetchMarket();
+                    }}
+                    disabled={marketLoading}
+                  >
+                    <RefreshCw size={14} />
+                    {marketLoading ? 'Loading...' : 'Retry'}
+                  </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginTop: '1.25rem', textAlign: 'center' }}>
-                  <div style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Nitrogen (N)</span>
-                    <div style={{ fontWeight: 700, color: '#34d399' }}>{soil.nitrogen ?? 'N/A'}</div>
+                {marketNote && (
+                  <p style={{ color: 'var(--text-secondary)', margin: '0.5rem 0 1rem' }}>{marketNote}</p>
+                )}
+                {marketLoading ? (
+                  <p role="status" className="dashboard-state">Loading market prices...</p>
+                ) : marketError ? (
+                  <div role="alert" className="alert dashboard-state dashboard-error">
+                    Unable to load market prices: {marketError}
                   </div>
-                  <div style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Phosphorus (P)</span>
-                    <div style={{ fontWeight: 700, color: '#38bdf8' }}>{soil.phosphorus ?? 'N/A'}</div>
+                ) : marketData.length === 0 ? (
+                  <p className="dashboard-state">No usable market data is available.</p>
+                ) : (
+                  <div className="dashboard-market-list">
+                    {marketData.map((item, index) => {
+                      const verified = item.status === 'VERIFIED' && item.source;
+                      const priceDate = verified && item.priceDate && Number.isFinite(Date.parse(item.priceDate))
+                        ? new Date(item.priceDate).toLocaleDateString()
+                        : 'Not available';
+
+                      return (
+                        <div
+                          key={item._id || `${item.crop}-${item.market}-${index}`}
+                          className="dashboard-market-item"
+                        >
+                          <div className="dashboard-market-crop"><strong>{item.crop}</strong><span>{item.market}</span></div>
+                          <div className="dashboard-market-price">₹{Number(item.price).toLocaleString()} <span>{item.unit || 'Unit not provided'}</span></div>
+                          <div className="dashboard-market-status">{verified ? 'VERIFIED' : 'INDICATIVE'}<span>Date: {priceDate}</span></div>
+                          <div className="dashboard-market-source">
+                            {item.source ? `Source: ${item.source}` : marketNote || 'Source not provided'}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Potassium (K)</span>
-                    <div style={{ fontWeight: 700, color: '#f59e0b' }}>{soil.potassium ?? 'N/A'}</div>
-                  </div>
-                  <div style={{ padding: '0.6rem', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>pH Level</span>
-                    <div style={{ fontWeight: 700, color: '#a855f7' }}>{soil.pH ?? 'N/A'}</div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

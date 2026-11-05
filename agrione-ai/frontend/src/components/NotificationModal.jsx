@@ -1,4 +1,3 @@
-import React from 'react';
 import { useFarm } from '../context/FarmContext';
 import {
   X,
@@ -14,11 +13,15 @@ import { schemesApi } from '../api/schemesApi';
 const NotificationModal = () => {
   const {
     notifications,
-    setNotifications,
+    unreadNotificationCount,
+    notificationLoading,
+    notificationError,
+    setNotificationError,
+    refreshNotifications,
     showNotificationDrawer,
     setShowNotificationDrawer,
     markAllNotificationsRead,
-    activeFarm,
+    markNotificationRead,
   } = useFarm();
 
   if (!showNotificationDrawer) return null;
@@ -26,21 +29,16 @@ const NotificationModal = () => {
   const handleGenerate = async () => {
     try {
       const res = await schemesApi.generateAlerts();
-      if (res?.alerts) {
-        setNotifications((prev) => [...res.alerts, ...prev]);
+      if (res?.success !== true) {
+        throw new Error(res?.message || 'Unable to scan for new warnings.');
       }
-    } catch (e) {
-      // Add a simulated alert
-      const mockAlert = {
-        _id: 'notif-' + Date.now(),
-        title: 'Irrigation Deficit Warning',
-        message: `Soil moisture in ${activeFarm?.name || 'Active Plot'} dropped to ${activeFarm?.soilData?.moisture || 24}%. Scheduled irrigation required within 24h.`,
-        type: 'irrigation_reminder',
-        severity: 'warning',
-        read: false,
-        createdAt: new Date().toISOString(),
-      };
-      setNotifications((prev) => [mockAlert, ...prev]);
+      const refreshResult = await refreshNotifications();
+      if (!refreshResult.success) {
+        return;
+      }
+      setNotificationError('');
+    } catch (error) {
+      setNotificationError(error.message || 'Unable to scan for new warnings.');
     }
   };
 
@@ -77,7 +75,7 @@ const NotificationModal = () => {
               Farm Early Warnings
             </span>
             <span className="badge badge-info">
-              {notifications.filter((n) => !n.read).length} New
+              {unreadNotificationCount} New
             </span>
           </div>
           <button
@@ -113,12 +111,14 @@ const NotificationModal = () => {
           </button>
           <button
             onClick={markAllNotificationsRead}
+            disabled={unreadNotificationCount === 0 || notificationLoading}
             style={{
               background: 'transparent',
               border: 'none',
               color: 'var(--text-secondary)',
               fontSize: '0.8rem',
-              cursor: 'pointer',
+              cursor: unreadNotificationCount === 0 ? 'default' : 'pointer',
+              opacity: unreadNotificationCount === 0 ? 0.6 : 1,
               textDecoration: 'underline',
             }}
           >
@@ -136,7 +136,25 @@ const NotificationModal = () => {
             gap: '1rem',
           }}
         >
-          {notifications.length === 0 ? (
+          {notificationError && (
+            <div className="alert" role="alert">
+              <div>{notificationError}</div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={refreshNotifications}
+                disabled={notificationLoading}
+                style={{ marginTop: '0.75rem' }}
+              >
+                <RefreshCw size={14} /> Retry
+              </button>
+            </div>
+          )}
+          {notificationLoading ? (
+            <div role="status" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+              Loading notifications...
+            </div>
+          ) : notificationError ? null : notifications.length === 0 ? (
             <div
               style={{
                 textAlign: 'center',
@@ -148,7 +166,7 @@ const NotificationModal = () => {
                 size={40}
                 style={{ color: '#10b981', margin: '0 auto 1rem' }}
               />
-              <p>No active alerts. Your crops and soil are in optimal state!</p>
+              <p>No notifications to display.</p>
             </div>
           ) : (
             notifications.map((notif) => (
@@ -157,11 +175,11 @@ const NotificationModal = () => {
                 style={{
                   padding: '1rem',
                   borderRadius: 'var(--radius-md)',
-                  background: notif.read
+                  background: notif.isRead
                     ? 'rgba(255, 255, 255, 0.02)'
                     : 'rgba(16, 185, 129, 0.06)',
                   border: `1px solid ${
-                    notif.read ? 'var(--border-subtle)' : 'var(--border-accent)'
+                    notif.isRead ? 'var(--border-subtle)' : 'var(--border-accent)'
                   }`,
                   display: 'flex',
                   gap: '0.85rem',
@@ -206,9 +224,21 @@ const NotificationModal = () => {
                         minute: '2-digit',
                       })}
                     </span>
-                    <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
-                      {notif.type.replace('_', ' ')}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
+                        {notif.type.replace('_', ' ')}
+                      </span>
+                      {!notif.isRead && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.65rem', padding: '0.2rem 0.45rem' }}
+                          onClick={() => markNotificationRead(notif._id)}
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

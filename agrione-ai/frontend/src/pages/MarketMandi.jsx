@@ -1,52 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { marketApi } from '../api/marketApi';
 import {
-  Store,
   Search,
-  IndianRupee,
-  TrendingUp,
   MapPin,
   RefreshCw,
-  Filter,
-  Sparkles,
 } from 'lucide-react';
 
-const DEFAULT_MARKET_DATA = [
-  { crop: 'Cotton', market: 'Adilabad Mandi', price: 6500, minPrice: 6000, maxPrice: 7000, unit: 'per quintal', location: 'Adilabad', state: 'Telangana' },
-  { crop: 'Chilli (Dry)', market: 'Guntur Mandi', price: 12000, minPrice: 10000, maxPrice: 14000, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh' },
-  { crop: 'Rice (Paddy)', market: 'Guntur Mandi', price: 2200, minPrice: 2000, maxPrice: 2400, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh' },
-  { crop: 'Tomato', market: 'Madanapalle Mandi', price: 2500, minPrice: 1500, maxPrice: 3500, unit: 'per quintal', location: 'Madanapalle', state: 'Andhra Pradesh' },
-  { crop: 'Onion', market: 'Lasalgaon Mandi', price: 1800, minPrice: 1500, maxPrice: 2200, unit: 'per quintal', location: 'Nashik', state: 'Maharashtra' },
-  { crop: 'Wheat', market: 'Hapur Mandi', price: 2300, minPrice: 2100, maxPrice: 2500, unit: 'per quintal', location: 'Hapur', state: 'Uttar Pradesh' },
-  { crop: 'Maize', market: 'Nizamabad Mandi', price: 1900, minPrice: 1750, maxPrice: 2050, unit: 'per quintal', location: 'Nizamabad', state: 'Telangana' },
-  { crop: 'Potato', market: 'Agra Mandi', price: 1200, minPrice: 1000, maxPrice: 1500, unit: 'per quintal', location: 'Agra', state: 'Uttar Pradesh' },
-  { crop: 'Groundnut', market: 'Rajkot Mandi', price: 5200, minPrice: 4800, maxPrice: 5600, unit: 'per quintal', location: 'Rajkot', state: 'Gujarat' },
-  { crop: 'Soybean', market: 'Indore Mandi', price: 4500, minPrice: 4200, maxPrice: 4800, unit: 'per quintal', location: 'Indore', state: 'Madhya Pradesh' },
-  { crop: 'Turmeric', market: 'Erode Mandi', price: 8500, minPrice: 7500, maxPrice: 9500, unit: 'per quintal', location: 'Erode', state: 'Tamil Nadu' },
-  { crop: 'Sugarcane', market: 'Kolhapur Mandi', price: 350, minPrice: 310, maxPrice: 380, unit: 'per quintal', location: 'Kolhapur', state: 'Maharashtra' },
-];
+const requestMarketData = async () => {
+  const res = await marketApi.getMarketData();
+  if (!Array.isArray(res?.marketData)) {
+    throw new Error(res?.message || 'The market data service returned an unexpected response.');
+  }
+
+  return {
+    data: res.marketData.filter((item) =>
+      item &&
+      typeof item.crop === 'string' &&
+      typeof item.market === 'string' &&
+      typeof item.price === 'number' &&
+      Number.isFinite(item.price)
+    ),
+    note: typeof res.note === 'string' ? res.note : '',
+  };
+};
 
 const MarketMandi = () => {
-  const [data, setData] = useState(DEFAULT_MARKET_DATA);
+  const [data, setData] = useState([]);
+  const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
   const [selectedState, setSelectedState] = useState('all');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const fetchMarket = useCallback(async () => {
+    try {
+      const result = await requestMarketData();
+      setData(result.data);
+      setNote(result.note);
+      setError('');
+    } catch (fetchError) {
+      setData([]);
+      setNote('');
+      setError(fetchError.message || 'Unable to load market data.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchMarket = async () => {
-      setLoading(true);
-      try {
-        const res = await marketApi.getMarketData();
-        if (res?.marketData && res.marketData.length > 0) {
-          setData(res.marketData);
-        }
-      } catch (e) {
-        // use fallback data
-      } finally {
-        setLoading(false);
-      }
+    let active = true;
+    requestMarketData().then((result) => {
+      if (!active) return;
+      setData(result.data);
+      setNote(result.note);
+      setError('');
+      setLoading(false);
+    }).catch((fetchError) => {
+      if (!active) return;
+      setData([]);
+      setNote('');
+      setError(fetchError.message || 'Unable to load market data.');
+      setLoading(false);
+    });
+
+    return () => {
+      active = false;
     };
-    fetchMarket();
   }, []);
 
   const filteredData = data.filter((item) => {
@@ -60,6 +79,8 @@ const MarketMandi = () => {
   });
 
   const states = ['all', ...new Set(data.map((d) => d.state).filter(Boolean))];
+  const allRecordsVerified = data.length > 0 && data.every((item) => item.status === 'VERIFIED' && item.source);
+  const someRecordsVerified = data.some((item) => item.status === 'VERIFIED' && item.source);
 
   return (
     <div className="page-container">
@@ -69,14 +90,40 @@ const MarketMandi = () => {
             APMC Mandi <span className="gradient-text">Commodity Prices</span>
           </h1>
           <p className="page-subtitle">
-            Daily wholesale market arrivals, modal rates, and price band analysis across major Indian agricultural markets.
+            Market records and indicative fallback rates. Verification status, source, and available dates are shown for each record.
           </p>
         </div>
 
-        <span className="badge badge-success">
-          Live Mandi Rates Synchronized
+        <span className={`badge ${allRecordsVerified ? 'badge-success' : 'badge-warning'}`}>
+          {loading ? 'Loading market data' : error || data.length === 0 ? 'NOT AVAILABLE' : allRecordsVerified ? 'VERIFIED' : someRecordsVerified ? 'MIXED DATA' : 'INDICATIVE'}
         </span>
       </div>
+
+      {note && (
+        <div className="glass-panel" style={{ padding: '0.85rem 1rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+          {note}
+        </div>
+      )}
+
+      {error && (
+        <div className="alert" role="alert" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <span>Unable to load market prices: {error}</span>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setLoading(true);
+              setError('');
+              setData([]);
+              setNote('');
+              fetchMarket();
+            }}
+            disabled={loading}
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div
@@ -130,22 +177,37 @@ const MarketMandi = () => {
       </div>
 
       {/* Commodity Cards Grid */}
+      {loading ? (
+        <div className="glass-panel" role="status" style={{ padding: '2rem', textAlign: 'center' }}>Loading market prices...</div>
+      ) : !error && filteredData.length === 0 ? (
+        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          {data.length ? 'No market prices match these filters.' : 'No market data is currently available.'}
+        </div>
+      ) : null}
       <div className="grid-3">
         {filteredData.map((item, idx) => {
-          const spread = item.maxPrice - item.minPrice;
+          const minPrice = Number(item.minPrice);
+          const maxPrice = Number(item.maxPrice);
+          const price = Number(item.price);
+          const hasPriceRange = Number.isFinite(minPrice) && minPrice > 0 && Number.isFinite(maxPrice) && maxPrice > minPrice;
+          const spread = hasPriceRange ? maxPrice - minPrice : 0;
           const pos =
             spread > 0
               ? Math.min(
                   100,
                   Math.max(
                     0,
-                    Math.round(((item.price - item.minPrice) / spread) * 100)
+                    Math.round(((price - minPrice) / spread) * 100)
                   )
                 )
               : 50;
+          const verified = item.status === 'VERIFIED' && Boolean(item.source);
+          const priceDate = verified && item.priceDate && Number.isFinite(Date.parse(item.priceDate))
+            ? new Date(item.priceDate).toLocaleDateString()
+            : 'Not available';
 
           return (
-            <div key={idx} className="glass-panel" style={{ padding: '1.5rem' }}>
+            <div key={item._id || `${item.crop}-${item.market}-${idx}`} className="glass-panel" style={{ padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1.25rem', color: '#ffffff' }}>
@@ -153,50 +215,56 @@ const MarketMandi = () => {
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                     <MapPin size={13} />
-                    {item.market} • {item.state}
+                    {item.market}{item.state ? ` • ${item.state}` : ''}
                   </div>
+                  <span className={`badge ${verified ? 'badge-success' : 'badge-warning'}`} style={{ marginTop: '0.5rem' }}>
+                    {verified ? 'VERIFIED' : 'INDICATIVE'}
+                  </span>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-heading)' }}>
-                    ₹{item.price.toLocaleString()}
+                    ₹{price.toLocaleString()}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    {item.unit || 'per quintal'}
+                    {item.unit || 'Unit not provided'}
                   </div>
                 </div>
               </div>
 
-              {/* Price Range Visual Indicator */}
-              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                  <span>Min: ₹{item.minPrice}</span>
-                  <span style={{ color: '#34d399', fontWeight: 600 }}>Modal: ₹{item.price}</span>
-                  <span>Max: ₹{item.maxPrice}</span>
-                </div>
-
-                {/* Progress bar representing where the modal price sits */}
-                <div
-                  style={{
-                    height: 6,
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: 4,
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
+              {hasPriceRange && (
+                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                    <span>Min: ₹{minPrice.toLocaleString()}</span>
+                    <span style={{ color: '#34d399', fontWeight: 600 }}>Modal: ₹{price.toLocaleString()}</span>
+                    <span>Max: ₹{maxPrice.toLocaleString()}</span>
+                  </div>
                   <div
                     style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: `${pos}%`,
-                      background: 'linear-gradient(90deg, #10b981, #34d399)',
+                      height: 6,
+                      background: 'rgba(255, 255, 255, 0.08)',
                       borderRadius: 4,
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
-                  />
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${pos}%`,
+                        background: 'linear-gradient(90deg, #10b981, #34d399)',
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
                 </div>
+              )}
+              <div style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                <div>Date: {priceDate}</div>
+                <div>{item.source ? `Source: ${item.source}` : note || 'Source not provided'}</div>
               </div>
             </div>
           );

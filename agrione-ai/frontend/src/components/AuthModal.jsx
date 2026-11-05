@@ -195,55 +195,29 @@ const AuthModal = ({ isOpen, onClose, fullScreen = false }) => {
                   </select>
                 </div>
               </div>
-            {isRegister && (
-              <>
-                <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">Phone Number</label>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+91 9876543210"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Role</label>
-                    <select
-                      className="form-select"
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    >
-                      <option value="farmer">Farmer</option>
-                      <option value="buyer">Produce Buyer / Trader</option>
-                      <option value="agronomist">Agronomist / Consultant</option>
-                    </select>
-                  </div>
-                </div>
 
-                <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">State</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">District</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.district}
-                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                    />
-                  </div>
+              <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">State</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  />
                 </div>
-              </>
-            )}
+                <div className="form-group">
+                  <label className="form-label">District</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.district}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"

@@ -1,15 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useFarm } from '../context/FarmContext';
 import { advisoryApi } from '../api/advisoryApi';
 import {
-  BotMessageSquare,
   Send,
   Sparkles,
-  Sprout,
   Trash2,
-  CheckCircle2,
-  HelpCircle,
-  Layers,
 } from 'lucide-react';
 
 const SUGGESTED_PROMPTS = [
@@ -20,21 +15,122 @@ const SUGGESTED_PROMPTS = [
   'Recommend organic alternatives to synthetic Urea and DAP.',
 ];
 
+const SOIL_MEASUREMENT_KEYS = [
+  'nitrogen',
+  'phosphorus',
+  'potassium',
+  'pH',
+  'moisture',
+  'organicCarbon',
+];
+
+const getRecordedSoilData = (soilData) => {
+  if (!soilData || typeof soilData !== 'object') return {};
+
+  return SOIL_MEASUREMENT_KEYS.reduce((recorded, key) => {
+    const value = soilData[key];
+    const provenance = soilData.measurementProvenance?.[key];
+    const recordedAt = provenance?.recordedAt
+      ? new Date(provenance.recordedAt).getTime()
+      : Number.NaN;
+
+    if (
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      (key !== 'pH' || value <= 14) &&
+      provenance?.source === 'farmer-entered' &&
+      Number.isFinite(recordedAt)
+    ) {
+      recorded[key] = value;
+    }
+
+    return recorded;
+  }, {});
+};
+
+const getAvailableFarmContext = (farm) => {
+  if (!farm || typeof farm !== 'object') return undefined;
+  const context = {};
+
+  if (typeof farm.farmName === 'string' && farm.farmName.trim()) {
+    context.farmName = farm.farmName.trim();
+  }
+  if (typeof farm.area === 'number' && Number.isFinite(farm.area) && farm.area > 0) {
+    context.area = farm.area;
+  }
+  if (typeof farm.currentCrop === 'string' && farm.currentCrop.trim()) {
+    context.currentCrop = farm.currentCrop.trim();
+  }
+  if (typeof farm.location === 'string' && farm.location.trim()) {
+    context.location = farm.location.trim();
+  }
+
+  const soilData = getRecordedSoilData(farm.soilData);
+  if (Object.keys(soilData).length > 0) context.soilData = soilData;
+
+  return Object.keys(context).length > 0 ? context : undefined;
+};
+
+const getFarmWelcomeDetails = (farm) => {
+  if (!farm) return 'Farm details are unavailable because no farm is selected.';
+
+  const details = [];
+  const unavailable = [];
+
+  if (typeof farm.farmName === 'string' && farm.farmName.trim()) {
+    details.push(`Farm: ${farm.farmName.trim()}`);
+  } else {
+    unavailable.push('farm name');
+  }
+  if (typeof farm.area === 'number' && Number.isFinite(farm.area) && farm.area > 0) {
+    details.push(`Area: ${farm.area} acres`);
+  } else {
+    unavailable.push('area');
+  }
+  if (typeof farm.currentCrop === 'string' && farm.currentCrop.trim()) {
+    details.push(`Current crop: ${farm.currentCrop.trim()}`);
+  } else {
+    unavailable.push('current crop');
+  }
+  if (typeof farm.location === 'string' && farm.location.trim()) {
+    details.push(`Location: ${farm.location.trim()}`);
+  } else {
+    unavailable.push('location');
+  }
+
+  const soilData = getRecordedSoilData(farm.soilData);
+  if (Object.keys(soilData).length > 0) {
+    details.push(`Recorded soil measurements: ${Object.entries(soilData)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ')}`);
+  } else {
+    unavailable.push('provenance-recorded soil measurements');
+  }
+
+  return [
+    details.length > 0 ? `Available farm details: ${details.join('; ')}.` : 'Farm details are unavailable.',
+    unavailable.length > 0 ? `Unavailable: ${unavailable.join(', ')}.` : '',
+  ].filter(Boolean).join('\n');
+};
+
+const createWelcomeMessage = () => ({
+  id: 'welcome',
+  sender: 'bot',
+  isWelcome: true,
+  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+});
+
 const AIAssistant = () => {
   const { activeFarm } = useFarm();
-  const [messages, setMessages] = useState([
-    {
-      id: 'msg-0',
-      sender: 'bot',
-      text: `Namaste! I am your **AgriOne AI Agricultural Advisor**. I have loaded the context for **${activeFarm?.name || 'your farm'}** (${activeFarm?.totalArea || 5.5} Acres, ${activeFarm?.primaryCrop || 'Cotton'} in ${activeFarm?.location?.district || 'Guntur'}, ${activeFarm?.location?.state || 'AP'}).\n\nHow can I assist your farming decisions today? You can ask about crop selection, pest control, soil nutrient dosing, irrigation timing, or government subsidies.`,
-      isAI: true,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
-
+  const [messages, setMessages] = useState(() => [createWelcomeMessage()]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [failedQuery, setFailedQuery] = useState('');
+  const loadingRef = useRef(false);
   const messagesEndRef = useRef(null);
+  const messageSequenceRef = useRef(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,55 +138,65 @@ const AIAssistant = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loading]);
+  }, [messages, loading, requestError]);
 
-  const handleSend = async (textToSend) => {
-    const query = textToSend || inputText;
-    if (!query.trim()) return;
+  const handleSend = async (textToSend, isRetry = false) => {
+    if (loadingRef.current) return;
 
-    const userMsg = {
-      id: 'msg-' + Date.now(),
-      sender: 'user',
-      text: query,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    const query = (typeof textToSend === 'string' ? textToSend : inputText).trim();
+    if (!query) return;
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
+    loadingRef.current = true;
     setLoading(true);
+    setRequestError('');
+
+    if (!isRetry) {
+      const userMsg = {
+        id: `msg-${++messageSequenceRef.current}`,
+        sender: 'user',
+        text: query,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setInputText('');
+      setFailedQuery('');
+    }
 
     try {
-      const res = await advisoryApi.chatAssistant(query, {
-        farmName: activeFarm?.name,
-        location: activeFarm?.location,
-        crop: activeFarm?.primaryCrop,
-        soil: activeFarm?.soilData,
-      });
+      const res = await advisoryApi.chatAssistant(query, getAvailableFarmContext(activeFarm));
+      if (
+        res?.success !== true ||
+        typeof res.response !== 'string' ||
+        !res.response.trim() ||
+        typeof res.isAI !== 'boolean' ||
+        typeof res.source !== 'string' ||
+        !res.source.trim()
+      ) {
+        throw new Error('The assistant returned an invalid response.');
+      }
 
-      const botMsg = {
-        id: 'msg-' + (Date.now() + 1),
+      setMessages((prev) => [...prev, {
+        id: `msg-${++messageSequenceRef.current}`,
         sender: 'bot',
-        text: res?.response || 'I am analyzing your field question. Please check back shortly.',
-        isAI: res?.isAI || false,
-        source: res?.source || 'Agricultural Knowledge Engine',
+        text: res.response.trim(),
+        isAI: res.isAI,
+        source: res.source.trim(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prev) => [...prev, botMsg]);
-    } catch (err) {
-      // Offline fallback answer
-      const botMsg = {
-        id: 'msg-' + (Date.now() + 1),
-        sender: 'bot',
-        text: `Regarding "${query}":\n\n1. Maintain balanced fertilization based on your soil test (N: ${activeFarm?.soilData?.nitrogen || 135} kg/ha, P: ${activeFarm?.soilData?.phosphorus || 42}, K: ${activeFarm?.soilData?.potassium || 195}).\n2. For pest and disease issues, deploy sticky traps and spray 5% Neem Seed Kernel Extract (NSKE) as early preventive bio-control.\n3. Always consult your district Krishi Vigyan Kendra (KVK) officer for field-specific confirmation.`,
-        isAI: false,
-        source: 'Built-in Agricultural Rulebase',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, botMsg]);
+      }]);
+      setFailedQuery('');
+    } catch {
+      setFailedQuery(query);
+      setRequestError('Unable to get a response right now. Please try again.');
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
+  };
+
+  const clearHistory = () => {
+    setMessages([createWelcomeMessage()]);
+    setRequestError('');
+    setFailedQuery('');
   };
 
   return (
@@ -106,25 +212,12 @@ const AIAssistant = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() =>
-              setMessages([
-                {
-                  id: 'msg-0',
-                  sender: 'bot',
-                  text: 'Chat history cleared. How can I help you with your crops today?',
-                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                },
-              ])
-            }
-            className="btn btn-secondary btn-sm"
-          >
+          <button onClick={clearHistory} className="btn btn-secondary btn-sm">
             <Trash2 size={14} /> Clear History
           </button>
         </div>
       </div>
 
-      {/* Suggested Quick Prompt Chips */}
       <div style={{ marginBottom: '1.25rem' }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
           FREQUENT FARMER QUESTIONS
@@ -134,6 +227,7 @@ const AIAssistant = () => {
             <button
               key={i}
               onClick={() => handleSend(prompt)}
+              disabled={loading}
               style={{
                 padding: '0.4rem 0.8rem',
                 borderRadius: 'var(--radius-full)',
@@ -141,7 +235,7 @@ const AIAssistant = () => {
                 border: '1px solid var(--border-subtle)',
                 color: 'var(--text-secondary)',
                 fontSize: '0.8rem',
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 textAlign: 'left',
               }}
             >
@@ -151,9 +245,7 @@ const AIAssistant = () => {
         </div>
       </div>
 
-      {/* Chat Window */}
       <div className="glass-panel chat-window">
-        {/* Messages Body */}
         <div className="chat-messages">
           {messages.map((msg) => (
             <div
@@ -175,7 +267,13 @@ const AIAssistant = () => {
                   }}
                 >
                   <Sparkles size={14} />
-                  AgriOne AI
+                  {msg.isAI === true
+                    ? 'Gemini AI'
+                    : msg.isAI === false
+                      ? msg.source === 'Unsupported question response'
+                        ? 'Predefined notice'
+                        : 'Predefined guidance'
+                      : 'AgriOne AI'}
                   {msg.source && (
                     <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
                       ({msg.source})
@@ -185,7 +283,9 @@ const AIAssistant = () => {
               )}
 
               <div style={{ whiteSpace: 'pre-line', lineHeight: 1.55 }}>
-                {msg.text}
+                {msg.isWelcome
+                  ? `Namaste! I am your **AgriOne AI Agricultural Advisor**.\n${getFarmWelcomeDetails(activeFarm)}\n\nHow can I assist your farming decisions today?`
+                  : msg.text}
               </div>
 
               <div
@@ -205,14 +305,29 @@ const AIAssistant = () => {
             <div className="message-bubble message-bot" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={16} className="animate-spin" style={{ color: '#34d399' }} />
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Consulting agronomic database and weather context...
+                Preparing your response...
               </span>
+            </div>
+          )}
+
+          {requestError && (
+            <div className="message-bubble message-bot" role="alert">
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+                {requestError}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleSend(failedQuery, true)}
+                disabled={loading}
+              >
+                Retry
+              </button>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Bar */}
         <form
           onSubmit={(e) => {
             e.preventDefault();

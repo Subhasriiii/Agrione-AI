@@ -11,5 +11,5 @@ export const advisoryApi = {
   predictYield: (data) => api.post('/yield', data),
   assessRisk: (data) => api.post('/risk', data),
   chatAssistant: (message, farmContext) =>
-    api.post('/assistant/chat', { message, farmContext }),
+    api.post('/assistant', { message, farmContext }),
 };

@@ -9,12 +9,35 @@ exports.getMarketData = async (req, res) => {
     if (market) filter.market = { $regex: market, $options: 'i' };
 
     let data = await MarketData.find(filter).sort('-priceDate').limit(50);
+    let isFallback = false;
 
     if (data.length === 0 && !crop && !location) {
       data = getDefaultMarketData();
+      isFallback = true;
     }
 
-    res.json({ success: true, marketData: data, note: 'Prices are indicative and may not reflect real-time market rates.' });
+    const marketData = data.map((record) => {
+      const item = typeof record.toObject === 'function' ? record.toObject() : record;
+      const source = typeof item.source === 'string' ? item.source.trim() : '';
+      const isVerified = item.isIndicative === false && item.isVerified === true && source.length > 0;
+
+      return {
+        ...item,
+        source: source || null,
+        isVerified,
+        status: isVerified ? 'VERIFIED' : 'INDICATIVE',
+        priceDate: isVerified ? item.priceDate || null : null,
+      };
+    });
+
+    res.json({
+      success: true,
+      marketData,
+      isFallback,
+      note: isFallback
+        ? 'Indicative fallback prices are shown; no live market feed is connected.'
+        : 'Prices are indicative unless a record is marked verified, non-indicative, and includes a source.',
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch market data.' });
   }
@@ -34,19 +57,18 @@ exports.seedMarketData = async (req, res) => {
 };
 
 function getDefaultMarketData() {
-  const today = new Date();
   return [
-    { crop: 'Rice', market: 'Guntur Mandi', price: 2200, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh', minPrice: 2000, maxPrice: 2400, priceDate: today, isIndicative: true },
-    { crop: 'Wheat', market: 'Hapur Mandi', price: 2300, unit: 'per quintal', location: 'Hapur', state: 'Uttar Pradesh', minPrice: 2100, maxPrice: 2500, priceDate: today, isIndicative: true },
-    { crop: 'Maize', market: 'Nizamabad Mandi', price: 1900, unit: 'per quintal', location: 'Nizamabad', state: 'Telangana', minPrice: 1750, maxPrice: 2050, priceDate: today, isIndicative: true },
-    { crop: 'Cotton', market: 'Adilabad Mandi', price: 6500, unit: 'per quintal', location: 'Adilabad', state: 'Telangana', minPrice: 6000, maxPrice: 7000, priceDate: today, isIndicative: true },
-    { crop: 'Tomato', market: 'Madanapalle Mandi', price: 2500, unit: 'per quintal', location: 'Madanapalle', state: 'Andhra Pradesh', minPrice: 1500, maxPrice: 3500, priceDate: today, isIndicative: true },
-    { crop: 'Onion', market: 'Lasalgaon Mandi', price: 1800, unit: 'per quintal', location: 'Nashik', state: 'Maharashtra', minPrice: 1500, maxPrice: 2200, priceDate: today, isIndicative: true },
-    { crop: 'Potato', market: 'Agra Mandi', price: 1200, unit: 'per quintal', location: 'Agra', state: 'Uttar Pradesh', minPrice: 1000, maxPrice: 1500, priceDate: today, isIndicative: true },
-    { crop: 'Groundnut', market: 'Rajkot Mandi', price: 5200, unit: 'per quintal', location: 'Rajkot', state: 'Gujarat', minPrice: 4800, maxPrice: 5600, priceDate: today, isIndicative: true },
-    { crop: 'Soybean', market: 'Indore Mandi', price: 4500, unit: 'per quintal', location: 'Indore', state: 'Madhya Pradesh', minPrice: 4200, maxPrice: 4800, priceDate: today, isIndicative: true },
-    { crop: 'Chilli', market: 'Guntur Mandi', price: 12000, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh', minPrice: 10000, maxPrice: 14000, priceDate: today, isIndicative: true },
-    { crop: 'Turmeric', market: 'Erode Mandi', price: 8500, unit: 'per quintal', location: 'Erode', state: 'Tamil Nadu', minPrice: 7500, maxPrice: 9500, priceDate: today, isIndicative: true },
-    { crop: 'Sugarcane', market: 'Kolhapur Mandi', price: 350, unit: 'per quintal', location: 'Kolhapur', state: 'Maharashtra', minPrice: 310, maxPrice: 380, priceDate: today, isIndicative: true },
+    { crop: 'Rice', market: 'Guntur Mandi', price: 2200, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh', minPrice: 2000, maxPrice: 2400, isIndicative: true },
+    { crop: 'Wheat', market: 'Hapur Mandi', price: 2300, unit: 'per quintal', location: 'Hapur', state: 'Uttar Pradesh', minPrice: 2100, maxPrice: 2500, isIndicative: true },
+    { crop: 'Maize', market: 'Nizamabad Mandi', price: 1900, unit: 'per quintal', location: 'Nizamabad', state: 'Telangana', minPrice: 1750, maxPrice: 2050, isIndicative: true },
+    { crop: 'Cotton', market: 'Adilabad Mandi', price: 6500, unit: 'per quintal', location: 'Adilabad', state: 'Telangana', minPrice: 6000, maxPrice: 7000, isIndicative: true },
+    { crop: 'Tomato', market: 'Madanapalle Mandi', price: 2500, unit: 'per quintal', location: 'Madanapalle', state: 'Andhra Pradesh', minPrice: 1500, maxPrice: 3500, isIndicative: true },
+    { crop: 'Onion', market: 'Lasalgaon Mandi', price: 1800, unit: 'per quintal', location: 'Nashik', state: 'Maharashtra', minPrice: 1500, maxPrice: 2200, isIndicative: true },
+    { crop: 'Potato', market: 'Agra Mandi', price: 1200, unit: 'per quintal', location: 'Agra', state: 'Uttar Pradesh', minPrice: 1000, maxPrice: 1500, isIndicative: true },
+    { crop: 'Groundnut', market: 'Rajkot Mandi', price: 5200, unit: 'per quintal', location: 'Rajkot', state: 'Gujarat', minPrice: 4800, maxPrice: 5600, isIndicative: true },
+    { crop: 'Soybean', market: 'Indore Mandi', price: 4500, unit: 'per quintal', location: 'Indore', state: 'Madhya Pradesh', minPrice: 4200, maxPrice: 4800, isIndicative: true },
+    { crop: 'Chilli', market: 'Guntur Mandi', price: 12000, unit: 'per quintal', location: 'Guntur', state: 'Andhra Pradesh', minPrice: 10000, maxPrice: 14000, isIndicative: true },
+    { crop: 'Turmeric', market: 'Erode Mandi', price: 8500, unit: 'per quintal', location: 'Erode', state: 'Tamil Nadu', minPrice: 7500, maxPrice: 9500, isIndicative: true },
+    { crop: 'Sugarcane', market: 'Kolhapur Mandi', price: 350, unit: 'per quintal', location: 'Kolhapur', state: 'Maharashtra', minPrice: 310, maxPrice: 380, isIndicative: true },
   ];
 }

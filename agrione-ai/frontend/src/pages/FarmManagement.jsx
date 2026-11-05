@@ -1,26 +1,39 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useFarm } from '../context/FarmContext';
 import {
   MapPin,
   Plus,
-  Trash2,
   Edit,
   CheckCircle2,
-  Droplets,
-  Sprout,
   X,
   Sparkles,
-  Layers,
+  Trash2,
 } from 'lucide-react';
 
+const isRecordedMeasurement = (soilData, field) => {
+  const provenance = soilData?.measurementProvenance?.[field];
+  return provenance?.source === 'farmer-entered' &&
+    Boolean(provenance.recordedAt) &&
+    Number.isFinite(Date.parse(provenance.recordedAt));
+};
+
+const getRecordedValue = (farm, field) => {
+  const value = farm?.soilData?.[field];
+  return isRecordedMeasurement(farm?.soilData, field) && value !== null && Number.isFinite(Number(value))
+    ? value
+    : '';
+};
+
 const FarmManagement = () => {
-  const { farms, activeFarm, setActiveFarm, addFarm, updateFarm, updateSoil } = useFarm();
+  const { farms, activeFarm, setActiveFarm, addFarm, updateFarm, updateSoil, deleteFarm } = useFarm();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSoilModal, setShowSoilModal] = useState(false);
   const [selectedFarmForEdit, setSelectedFarmForEdit] = useState(null);
   const [selectedFarmForSoil, setSelectedFarmForSoil] = useState(null);
   const [createError, setCreateError] = useState('');
+  const [soilSaveError, setSoilSaveError] = useState('');
+  const [deletingFarmId, setDeletingFarmId] = useState(null);
   const [statusMessage, setStatusMessage] = useState({ type: '', message: '' });
 
   const [formData, setFormData] = useState({
@@ -35,12 +48,12 @@ const FarmManagement = () => {
   });
 
   const [soilFormData, setSoilFormData] = useState({
-    nitrogen: 140,
-    phosphorus: 40,
-    potassium: 200,
-    ph: 6.8,
-    organicCarbon: 0.6,
-    moisture: 30,
+    nitrogen: '',
+    phosphorus: '',
+    potassium: '',
+    ph: '',
+    organicCarbon: '',
+    moisture: '',
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -123,32 +136,70 @@ const FarmManagement = () => {
 
   const handleOpenSoil = (farm) => {
     setSelectedFarmForSoil(farm);
-    if (farm.soilData) {
-      setSoilFormData({
-        nitrogen: farm.soilData.nitrogen || 140,
-        phosphorus: farm.soilData.phosphorus || 40,
-        potassium: farm.soilData.potassium || 200,
-        ph: farm.soilData.pH ?? 6.8,
-        organicCarbon: farm.soilData.organicCarbon || 0.6,
-        moisture: farm.soilData.moisture || 30,
-      });
-    }
+    setSoilSaveError('');
+    setStatusMessage({ type: '', message: '' });
+    setSoilFormData({
+      nitrogen: getRecordedValue(farm, 'nitrogen'),
+      phosphorus: getRecordedValue(farm, 'phosphorus'),
+      potassium: getRecordedValue(farm, 'potassium'),
+      ph: getRecordedValue(farm, 'pH'),
+      organicCarbon: getRecordedValue(farm, 'organicCarbon'),
+      moisture: getRecordedValue(farm, 'moisture'),
+    });
     setShowSoilModal(true);
   };
 
   const handleSaveSoil = async (e) => {
     e.preventDefault();
+    setSoilSaveError('');
     if (selectedFarmForSoil) {
-      await updateSoil(selectedFarmForSoil._id, {
-        nitrogen: Number(soilFormData.nitrogen),
-        phosphorus: Number(soilFormData.phosphorus),
-        potassium: Number(soilFormData.potassium),
-        pH: Number(soilFormData.ph),
-        organicCarbon: Number(soilFormData.organicCarbon),
-        moisture: Number(soilFormData.moisture),
-      });
+      const soilMeasurements = {
+        nitrogen: soilFormData.nitrogen,
+        phosphorus: soilFormData.phosphorus,
+        potassium: soilFormData.potassium,
+        pH: soilFormData.ph,
+        organicCarbon: soilFormData.organicCarbon,
+        moisture: soilFormData.moisture,
+      };
+      const payload = Object.fromEntries(
+        Object.entries(soilMeasurements)
+          .filter(([, value]) => value !== '' && value !== null && value !== undefined)
+          .map(([field, value]) => [field, Number(value)])
+      );
+
+      if (Object.keys(payload).length === 0) {
+        setSoilSaveError('Enter at least one soil measurement before saving.');
+        return;
+      }
+
+      const result = await updateSoil(selectedFarmForSoil._id, payload);
+      if (!result.success) {
+        setSoilSaveError(result.message || 'Unable to save soil measurements.');
+        return;
+      }
+
+      setStatusMessage({ type: 'success', message: 'Soil measurements saved as farmer-entered values.' });
+      setShowSoilModal(false);
     }
-    setShowSoilModal(false);
+  };
+
+  const handleDeleteFarm = async (farm) => {
+    if (!window.confirm(`Permanently delete "${farm.farmName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingFarmId(farm._id);
+    setStatusMessage({ type: '', message: '' });
+    try {
+      const result = await deleteFarm(farm._id);
+      setStatusMessage(result.success
+        ? { type: 'success', message: `${farm.farmName} was deleted.` }
+        : { type: 'error', message: result.message || 'Unable to delete farm.' });
+    } catch (error) {
+      setStatusMessage({ type: 'error', message: error.message || 'Unable to delete farm.' });
+    } finally {
+      setDeletingFarmId(null);
+    }
   };
 
   return (
@@ -196,6 +247,11 @@ const FarmManagement = () => {
       <div className="grid-2">
         {farms.map((farm) => {
           const isActive = activeFarm?._id === farm._id;
+          const recordedNitrogen = getRecordedValue(farm, 'nitrogen');
+          const recordedPhosphorus = getRecordedValue(farm, 'phosphorus');
+          const recordedPotassium = getRecordedValue(farm, 'potassium');
+          const recordedPh = getRecordedValue(farm, 'pH');
+          const recordedMoisture = getRecordedValue(farm, 'moisture');
           return (
             <div
               key={farm._id}
@@ -327,23 +383,25 @@ const FarmManagement = () => {
                 >
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>N:</span>{' '}
-                    <strong>{farm.soilData?.nitrogen ?? 'N/A'}</strong>
+                    <strong>{recordedNitrogen !== '' ? recordedNitrogen : 'Not recorded'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>P:</span>{' '}
-                    <strong>{farm.soilData?.phosphorus ?? 'N/A'}</strong>
+                    <strong>{recordedPhosphorus !== '' ? recordedPhosphorus : 'Not recorded'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>K:</span>{' '}
-                    <strong>{farm.soilData?.potassium ?? 'N/A'}</strong>
+                    <strong>{recordedPotassium !== '' ? recordedPotassium : 'Not recorded'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>pH:</span>{' '}
-                    <strong>{farm.soilData?.pH ?? 'N/A'}</strong>
+                    <strong>{recordedPh !== '' ? recordedPh : 'Not recorded'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Moist:</span>{' '}
-                    <strong>{farm.soilData?.moisture ?? 'N/A'}{farm.soilData?.moisture !== undefined ? '%' : ''}</strong>
+                    <strong>
+                      {recordedMoisture !== '' ? `${recordedMoisture}%` : 'Not recorded'}
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -374,6 +432,17 @@ const FarmManagement = () => {
                 >
                   <Sparkles size={14} />
                   Update Soil Metrics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteFarm(farm)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1, color: '#fca5a5' }}
+                  disabled={deletingFarmId !== null}
+                  aria-label={`Delete ${farm.farmName}`}
+                >
+                  <Trash2 size={14} />
+                  {deletingFarmId === farm._id ? 'Deleting...' : 'Delete Farm'}
                 </button>
               </div>
             </div>
@@ -614,7 +683,7 @@ const FarmManagement = () => {
               <div>
                 <h3>Update Soil Test Values</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Farm: {selectedFarmForSoil?.name}
+                  Farm: {selectedFarmForSoil?.farmName || selectedFarmForSoil?.name}
                 </p>
               </div>
               <button
@@ -626,6 +695,11 @@ const FarmManagement = () => {
             </div>
 
             <form onSubmit={handleSaveSoil} className="modal-body">
+              {soilSaveError && (
+                <div className="alert" role="alert">
+                  {soilSaveError}
+                </div>
+              )}
               <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label">Nitrogen (N) - kg/ha</label>

@@ -21,45 +21,6 @@ const YieldAndRisk = () => {
   const { activeFarm } = useFarm();
   const [activeSubTab, setActiveSubTab] = useState('yield'); // 'yield' | 'risk'
 
-  // Risk inputs & output
-  const [riskInputs, setRiskInputs] = useState({
-    cropName: activeFarm?.primaryCrop || 'Cotton',
-    weatherRisk: 35,
-    pestRisk: 42,
-    marketPriceVolatility: 30,
-    soilHealthScore: 84,
-    irrigationAdequacy: 80,
-  });
-
-  const [riskResult, setRiskResult] = useState({
-    overallRiskScore: 38,
-    riskCategory: 'Low-to-Moderate Risk',
-    breakdown: [
-      { factor: 'Weather Risk', score: 35, color: '#38bdf8' },
-      { factor: 'Pest Outbreak Risk', score: 42, color: '#f59e0b' },
-      { factor: 'Market Volatility', score: 30, color: '#a855f7' },
-      { factor: 'Water Stress Risk', score: 25, color: '#10b981' },
-      { factor: 'Soil Nutrient Lag', score: 20, color: '#34d399' },
-    ],
-    mitigationStrategies: [
-      'Enroll in Pradhan Mantri Fasal Bima Yojana (PMFBY) to hedge against unseasonal rainfall.',
-      'Deploy yellow sticky traps and pheromone traps at 5 traps/acre for early pest surveillance.',
-      'Stagger crop harvest marketing across 3 tranches to average out mandi price fluctuations.',
-    ],
-  });
-
-  const handleAssessRisk = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await advisoryApi.assessRisk(riskInputs);
-      if (res?.risk) {
-        setRiskResult(res.risk);
-      }
-    } catch (e) {
-      console.warn('Risk baseline assessment used');
-    }
-  };
-
   return (
     <div className="page-container">
       <div className="page-header">
@@ -93,110 +54,285 @@ const YieldAndRisk = () => {
       {activeSubTab === 'yield' ? (
         <YieldEstimator key={activeFarm?._id || 'no-active-farm'} activeFarm={activeFarm} />
       ) : (
-        /* Risk Assessment Tab */
-        <div className="grid-split-2-1">
-          <div className="glass-panel" style={{ padding: '1.75rem' }}>
-            <div className="card-title-bar">
-              <div className="card-title">
-                <ShieldAlert size={20} style={{ color: '#f59e0b' }} />
-                Vulnerability Variables
-              </div>
-            </div>
+        <RiskAssessment key={activeFarm?._id || 'no-active-farm'} activeFarm={activeFarm} />
+      )}
+    </div>
+  );
+};
 
-            <form onSubmit={handleAssessRisk}>
-              <div className="form-group">
-                <label className="form-label">Weather Volatility Risk ({riskInputs.weatherRisk}%)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  style={{ width: '100%', accentColor: '#10b981' }}
-                  value={riskInputs.weatherRisk}
-                  onChange={(e) => setRiskInputs({ ...riskInputs, weatherRisk: Number(e.target.value) })}
-                />
-              </div>
+const getRecordedSoilValue = (farm, field) => {
+  const value = farm?.soilData?.[field];
+  const provenance = farm?.soilData?.measurementProvenance?.[field];
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    provenance?.source === 'farmer-entered' &&
+    Boolean(provenance.recordedAt) &&
+    Number.isFinite(Date.parse(provenance.recordedAt))
+    ? String(value)
+    : '';
+};
 
-              <div className="form-group">
-                <label className="form-label">Pest & Disease Pressure ({riskInputs.pestRisk}%)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  style={{ width: '100%', accentColor: '#f59e0b' }}
-                  value={riskInputs.pestRisk}
-                  onChange={(e) => setRiskInputs({ ...riskInputs, pestRisk: Number(e.target.value) })}
-                />
-              </div>
+const getInitialRiskInputs = (farm) => ({
+  temperature: '',
+  humidity: '',
+  rainfall: '',
+  soilMoisture: getRecordedSoilValue(farm, 'moisture'),
+  pH: getRecordedSoilValue(farm, 'pH'),
+  nitrogen: getRecordedSoilValue(farm, 'nitrogen'),
+  phosphorus: getRecordedSoilValue(farm, 'phosphorus'),
+  potassium: getRecordedSoilValue(farm, 'potassium'),
+  irrigationType: farm?.irrigationType || '',
+  diseaseRisk: '',
+});
 
-              <div className="form-group">
-                <label className="form-label">Market Price Volatility ({riskInputs.marketPriceVolatility}%)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  style={{ width: '100%', accentColor: '#a855f7' }}
-                  value={riskInputs.marketPriceVolatility}
-                  onChange={(e) => setRiskInputs({ ...riskInputs, marketPriceVolatility: Number(e.target.value) })}
-                />
-              </div>
+const riskNumericFields = [
+  { field: 'temperature', label: 'Temperature (°C)', min: -50, max: 60, required: true },
+  { field: 'humidity', label: 'Humidity (%)', min: 0, max: 100, required: true },
+  { field: 'rainfall', label: 'Rainfall (mm)', min: 0, max: 10000, required: true },
+  { field: 'soilMoisture', label: 'Soil moisture (%)', min: 0, max: 100 },
+  { field: 'pH', label: 'Soil pH', min: 0, max: 14 },
+  { field: 'nitrogen', label: 'Nitrogen (kg/ha)', min: 0, max: 300 },
+  { field: 'phosphorus', label: 'Phosphorus (kg/ha)', min: 0, max: 200 },
+  { field: 'potassium', label: 'Potassium (kg/ha)', min: 0, max: 300 },
+];
 
-              <button type="submit" className="btn btn-accent" style={{ width: '100%', marginTop: '1rem' }}>
-                <Sparkles size={16} />
-                Recalculate Composite Risk
-              </button>
-            </form>
+const isRiskSectionValid = (section, includesFactors) => (
+  section &&
+  typeof section === 'object' &&
+  Number.isFinite(section.score) &&
+  section.score >= 0 &&
+  section.score <= 100 &&
+  ['LOW', 'MEDIUM', 'HIGH'].includes(section.level) &&
+  (!includesFactors || (
+    Array.isArray(section.factors) &&
+    section.factors.every((factor) => typeof factor === 'string')
+  ))
+);
+
+const isValidRiskResult = (risk) => (
+  risk &&
+  isRiskSectionValid(risk.overall, false) &&
+  ['weather', 'soil', 'disease', 'water', 'yield'].every((key) =>
+    isRiskSectionValid(risk[key], true)
+  ) &&
+  (risk.mitigationStrategies === undefined || (
+    Array.isArray(risk.mitigationStrategies) &&
+    risk.mitigationStrategies.every((suggestion) => typeof suggestion === 'string')
+  ))
+);
+
+const RiskAssessment = ({ activeFarm }) => {
+  const [riskInputs, setRiskInputs] = useState(() => getInitialRiskInputs(activeFarm));
+  const [riskResult, setRiskResult] = useState(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState('');
+
+  const updateRiskInput = (field, value) => {
+    setRiskInputs((previous) => ({ ...previous, [field]: value }));
+    setRiskResult(null);
+    setRiskError('');
+  };
+
+  const handleAssessRisk = async (event) => {
+    event.preventDefault();
+    const requiredFields = riskNumericFields.filter(({ required }) => required);
+    for (const { field, label, min, max } of requiredFields) {
+      const value = riskInputs[field];
+      if (value === '' || !Number.isFinite(Number(value)) || Number(value) < min || Number(value) > max) {
+        setRiskResult(null);
+        setRiskError(`${label} is required and must be between ${min} and ${max}.`);
+        return;
+      }
+    }
+
+    const payload = {};
+    for (const { field, min, max } of riskNumericFields) {
+      const rawValue = riskInputs[field];
+      if (rawValue === '') continue;
+      const value = Number(rawValue);
+      if (!Number.isFinite(value) || value < min || value > max) {
+        setRiskResult(null);
+        setRiskError(`${field} must be a number between ${min} and ${max}.`);
+        return;
+      }
+      payload[field] = value;
+    }
+    if (riskInputs.irrigationType) payload.irrigationType = riskInputs.irrigationType;
+    if (riskInputs.diseaseRisk) payload.diseaseRisk = riskInputs.diseaseRisk;
+
+    setRiskLoading(true);
+    setRiskResult(null);
+    setRiskError('');
+    try {
+      const response = await advisoryApi.assessRisk(payload);
+      if (response?.success !== true || !isValidRiskResult(response.risk)) {
+        throw new Error(response?.message || 'Risk assessment returned an invalid response.');
+      }
+      setRiskResult(response.risk);
+    } catch (error) {
+      setRiskError(error.message || 'Unable to assess farm risk right now.');
+    } finally {
+      setRiskLoading(false);
+    }
+  };
+
+  const chartData = riskResult ? [
+    { factor: 'Weather', score: riskResult.weather.score, color: '#38bdf8' },
+    { factor: 'Soil', score: riskResult.soil.score, color: '#34d399' },
+    { factor: 'Disease', score: riskResult.disease.score, color: '#f59e0b' },
+    { factor: 'Water', score: riskResult.water.score, color: '#10b981' },
+    { factor: 'Yield', score: riskResult.yield.score, color: '#a855f7' },
+  ] : [];
+
+  return (
+    <div className="grid-split-2-1">
+      <div className="glass-panel" style={{ padding: '1.75rem' }}>
+        <div className="card-title-bar">
+          <div className="card-title">
+            <ShieldAlert size={20} style={{ color: '#f59e0b' }} />
+            Risk Assessment Inputs
           </div>
+        </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form onSubmit={handleAssessRisk} noValidate>
+          <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
+            {riskNumericFields.map(({ field, label, min, max, required }) => (
+              <div className="form-group" key={field}>
+                <label className="form-label" htmlFor={`risk-${field}`}>
+                  {label}{required ? ' — required' : ' — optional'}
+                </label>
+                <input
+                  id={`risk-${field}`}
+                  type="number"
+                  className="form-input"
+                  min={min}
+                  max={max}
+                  step="any"
+                  required={required}
+                  value={riskInputs[field]}
+                  disabled={riskLoading}
+                  onChange={(event) => updateRiskInput(field, event.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="risk-irrigation">Irrigation type — optional</label>
+              <select
+                id="risk-irrigation"
+                className="form-select"
+                value={riskInputs.irrigationType}
+                disabled={riskLoading}
+                onChange={(event) => updateRiskInput('irrigationType', event.target.value)}
+              >
+                <option value="">Not specified</option>
+                <option value="rainfed">Rainfed</option>
+                <option value="drip">Drip</option>
+                <option value="sprinkler">Sprinkler</option>
+                <option value="flood">Flood / Furrow</option>
+                <option value="canal">Canal</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="risk-disease">Previously identified disease risk — optional</label>
+              <select
+                id="risk-disease"
+                className="form-select"
+                value={riskInputs.diseaseRisk}
+                disabled={riskLoading}
+                onChange={(event) => updateRiskInput('diseaseRisk', event.target.value)}
+              >
+                <option value="">Not specified</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <small style={{ color: 'var(--text-muted)' }}>
+            Temperature, humidity and rainfall are required. Optional soil values are prefilled only when their farmer-entered provenance is valid.
+          </small>
+          <button type="submit" disabled={riskLoading} className="btn btn-accent" style={{ width: '100%', marginTop: '1rem' }}>
+            <Sparkles size={16} />
+            {riskLoading ? 'Assessing risk...' : 'Assess Farm Risk'}
+          </button>
+        </form>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {riskError ? (
+          <div className="glass-panel" role="alert" style={{ padding: '1.5rem', color: '#f87171' }}>
+            <AlertTriangle size={16} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+            {riskError}
+          </div>
+        ) : riskLoading ? (
+          <div className="glass-panel" role="status" style={{ padding: '1.5rem', color: 'var(--text-secondary)' }}>
+            Calculating risk assessment...
+          </div>
+        ) : !riskResult ? (
+          <div className="glass-panel" style={{ padding: '1.5rem', color: 'var(--text-secondary)' }}>
+            Enter current weather conditions and assess risk to see results.
+          </div>
+        ) : (
+          <>
             <div className="glass-panel" style={{ padding: '1.75rem', textAlign: 'center' }}>
+              <span className="badge badge-success">Assessment complete</span>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 Composite Farm Risk Score
               </div>
               <div style={{ fontSize: '3.2rem', fontWeight: 800, color: '#34d399', fontFamily: 'var(--font-heading)' }}>
-                {riskResult.overallRiskScore}
+                {riskResult.overall.score}
                 <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>/100</span>
               </div>
-              <span className="badge badge-success">{riskResult.riskCategory}</span>
+              <span className={`badge ${riskResult.overall.level === 'HIGH' ? 'badge-danger' : riskResult.overall.level === 'MEDIUM' ? 'badge-warning' : 'badge-success'}`}>
+                {riskResult.overall.level} RISK
+              </span>
             </div>
 
-            {/* Breakdown Chart */}
             <div className="glass-panel" style={{ padding: '1.5rem' }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 RISK FACTOR BREAKDOWN
               </div>
               <div style={{ height: 180, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={riskResult.breakdown} layout="vertical" margin={{ left: 20 }}>
+                  <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
                     <XAxis type="number" domain={[0, 100]} stroke="#64748b" />
                     <YAxis dataKey="factor" type="category" stroke="#64748b" width={110} tick={{ fontSize: 11 }} />
                     <Tooltip contentStyle={{ backgroundColor: '#0d171b', borderRadius: 8 }} />
                     <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-                      {riskResult.breakdown.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                      {chartData.map((entry) => <Cell key={entry.factor} fill={entry.color} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            {Array.isArray(riskResult.mitigationStrategies) && riskResult.mitigationStrategies.length > 0 && (
+              <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                <h3>Mitigation suggestions</h3>
+                <ul>
+                  {riskResult.mitigationStrategies.map((suggestion, index) => (
+                    <li key={`${suggestion}-${index}`}>{suggestion}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
 
 const getYieldInputs = (farm) => {
-  const recordedSoilValue = (value) => (
-    Number.isFinite(value) && value > 0 ? String(value) : ''
-  );
-
   return {
     crop: farm?.currentCrop || '',
     farmArea: Number.isFinite(farm?.area) && farm.area > 0 ? String(farm.area) : '',
-    nitrogen: recordedSoilValue(farm?.soilData?.nitrogen),
-    phosphorus: recordedSoilValue(farm?.soilData?.phosphorus),
-    potassium: recordedSoilValue(farm?.soilData?.potassium),
+    nitrogen: getRecordedSoilValue(farm, 'nitrogen'),
+    phosphorus: getRecordedSoilValue(farm, 'phosphorus'),
+    potassium: getRecordedSoilValue(farm, 'potassium'),
     rainfall: '',
     irrigationType: farm?.irrigationType || '',
   };

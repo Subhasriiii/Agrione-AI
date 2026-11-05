@@ -14,7 +14,14 @@ exports.getNotifications = async (req, res) => {
 // Mark as read
 exports.markRead = async (req, res) => {
   try {
-    await Notification.findOneAndUpdate({ _id: req.params.id, user: req.user._id }, { isRead: true });
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      { isRead: true },
+      { new: true }
+    );
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found.' });
+    }
     res.json({ success: true, message: 'Notification marked as read.' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to update notification.' });

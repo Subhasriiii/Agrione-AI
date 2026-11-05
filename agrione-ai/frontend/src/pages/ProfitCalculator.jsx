@@ -1,14 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useFarm } from '../context/FarmContext';
-import { simulationApi } from '../api/simulationApi';
 import {
   Calculator,
-  IndianRupee,
-  TrendingUp,
   PieChart as PieIcon,
-  Percent,
-  Sparkles,
-  Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   PieChart,
@@ -19,44 +14,98 @@ import {
   Legend,
 } from 'recharts';
 
+const COST_FIELDS = [
+  { key: 'labor', label: 'Labor & Sowing (₹)' },
+  { key: 'fertilizers', label: 'Fertilizers & Manure (₹)' },
+  { key: 'seeds', label: 'Seeds (₹)' },
+  { key: 'machinery', label: 'Machinery/Tractor (₹)' },
+  { key: 'pesticides', label: 'Pesticides (₹)' },
+  { key: 'irrigation', label: 'Irrigation Power (₹)' },
+  { key: 'other', label: 'Other Overheads (₹)' },
+];
+
+const getCalculations = (inputs) => {
+  const errors = [];
+  const numericFields = [
+    { key: 'area', label: 'Acreage', positive: true },
+    { key: 'expectedYieldPerAcre', label: 'Expected yield per acre', positive: true },
+    { key: 'expectedPricePerQuintal', label: 'Selling price', positive: true },
+    ...COST_FIELDS.map(({ key, label }) => ({ key: `costs.${key}`, label, positive: false })),
+  ];
+  const values = {};
+
+  for (const { key, label, positive } of numericFields) {
+    const rawValue = key.startsWith('costs.')
+      ? inputs.costs[key.slice('costs.'.length)]
+      : inputs[key];
+    if (rawValue === '') {
+      errors.push(`${label} is required.`);
+      continue;
+    }
+
+    const value = Number(rawValue);
+    if (!Number.isFinite(value) || (positive ? value <= 0 : value < 0)) {
+      errors.push(`${label} must be a finite ${positive ? 'positive' : 'non-negative'} number.`);
+      continue;
+    }
+    values[key] = value;
+  }
+
+  if (errors.length > 0) return { errors, values: null };
+
+  const costPerAcre = COST_FIELDS.reduce((sum, { key }) => sum + values[`costs.${key}`], 0);
+  const totalProduction = values.expectedYieldPerAcre * values.area;
+  const grossRevenue = totalProduction * values.expectedPricePerQuintal;
+  const totalCost = costPerAcre * values.area;
+  const netProfit = grossRevenue - totalCost;
+  const calculations = {
+    costPerAcre,
+    totalProduction,
+    grossRevenue,
+    totalCost,
+    netProfit,
+    profitPerAcre: netProfit / values.area,
+    roi: totalCost > 0 ? (netProfit / totalCost) * 100 : null,
+    profitMargin: (netProfit / grossRevenue) * 100,
+    breakEvenYield: costPerAcre / values.expectedPricePerQuintal,
+    breakEvenPrice: costPerAcre / values.expectedYieldPerAcre,
+  };
+
+  if (Object.values(calculations).some((value) => value !== null && !Number.isFinite(value))) {
+    return { errors: ['The entered values are too large to calculate safely.'], values: null };
+  }
+  return { errors: [], values: calculations };
+};
+
+const formatCurrency = (value) => (
+  value === null ? 'N/A' : `₹${Math.round(value).toLocaleString()}`
+);
+
+const formatNumber = (value, maximumFractionDigits = 2) => (
+  value === null ? 'N/A' : value.toLocaleString(undefined, { maximumFractionDigits })
+);
+
 const ProfitCalculator = () => {
   const { activeFarm } = useFarm();
-  const [loading, setLoading] = useState(false);
 
-  const [inputs, setInputs] = useState({
-    cropName: activeFarm?.primaryCrop || 'Cotton',
-    area: activeFarm?.totalArea || 5.5,
-    expectedYieldPerAcre: 12,
-    expectedPricePerQuintal: 6500,
-    costs: {
-      seeds: 3500,
-      fertilizers: 6500,
-      pesticides: 4000,
-      labor: 14000,
-      machinery: 5000,
-      irrigation: 2500,
-      other: 2000,
-    },
-  });
-
-  const costPerAcre = Object.values(inputs.costs).reduce((acc, c) => acc + Number(c), 0);
-  const totalCost = costPerAcre * inputs.area;
-  const totalProduction = inputs.expectedYieldPerAcre * inputs.area;
-  const grossRevenue = totalProduction * inputs.expectedPricePerQuintal;
-  const netProfit = grossRevenue - totalCost;
-  const profitPerAcre = netProfit / inputs.area;
-  const roi = ((netProfit / totalCost) * 100).toFixed(1);
-  const breakEvenYield = (costPerAcre / inputs.expectedPricePerQuintal).toFixed(2);
-  const breakEvenPrice = Math.round(costPerAcre / inputs.expectedYieldPerAcre);
+  const [inputs, setInputs] = useState(() => ({
+    cropName: activeFarm?.currentCrop || '',
+    area: Number.isFinite(activeFarm?.area) && activeFarm.area > 0 ? String(activeFarm.area) : '',
+    expectedYieldPerAcre: '',
+    expectedPricePerQuintal: '',
+    costs: Object.fromEntries(COST_FIELDS.map(({ key }) => [key, ''])),
+  }));
+  const { errors, values } = getCalculations(inputs);
+  const hasProjections = values !== null;
 
   const expenseData = [
-    { name: 'Labor & Weeding', value: inputs.costs.labor, color: '#10b981' },
-    { name: 'Fertilizers & Nutrients', value: inputs.costs.fertilizers, color: '#38bdf8' },
-    { name: 'Machinery & Diesel', value: inputs.costs.machinery, color: '#f59e0b' },
-    { name: 'Pesticides / Plant Protection', value: inputs.costs.pesticides, color: '#ef4444' },
-    { name: 'Certified Seeds', value: inputs.costs.seeds, color: '#a855f7' },
-    { name: 'Irrigation Power', value: inputs.costs.irrigation, color: '#34d399' },
-    { name: 'Overheads & Transport', value: inputs.costs.other, color: '#64748b' },
+    { name: 'Labor & Weeding', value: Number(inputs.costs.labor) || 0, color: '#10b981' },
+    { name: 'Fertilizers & Nutrients', value: Number(inputs.costs.fertilizers) || 0, color: '#38bdf8' },
+    { name: 'Machinery & Diesel', value: Number(inputs.costs.machinery) || 0, color: '#f59e0b' },
+    { name: 'Pesticides / Plant Protection', value: Number(inputs.costs.pesticides) || 0, color: '#ef4444' },
+    { name: 'Certified Seeds', value: Number(inputs.costs.seeds) || 0, color: '#a855f7' },
+    { name: 'Irrigation Power', value: Number(inputs.costs.irrigation) || 0, color: '#34d399' },
+    { name: 'Overheads & Transport', value: Number(inputs.costs.other) || 0, color: '#64748b' },
   ];
 
   const handleCostChange = (key, val) => {
@@ -64,24 +113,9 @@ const ProfitCalculator = () => {
       ...prev,
       costs: {
         ...prev.costs,
-        [key]: Number(val),
+        [key]: val,
       },
     }));
-  };
-
-  const handleCalculateServer = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await simulationApi.calculateProfit({
-        cropName: inputs.cropName,
-        area: inputs.area,
-        expectedYieldPerAcre: inputs.expectedYieldPerAcre,
-        expectedPricePerQuintal: inputs.expectedPricePerQuintal,
-        costs: inputs.costs,
-      });
-    } catch (e) {}
-    setLoading(false);
   };
 
   return (
@@ -101,41 +135,45 @@ const ProfitCalculator = () => {
       <div className="grid-4">
         <div className="glass-panel stat-card">
           <span className="stat-label">Net Projected Profit</span>
-          <div className="stat-val" style={{ color: '#34d399' }}>
-            ₹{Math.max(0, Math.round(netProfit)).toLocaleString()}
+          <div className="stat-val" style={{ color: hasProjections && values.netProfit < 0 ? '#f87171' : '#34d399' }}>
+            {hasProjections ? formatCurrency(values.netProfit) : '—'}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            For total {inputs.area} Acres
+            {hasProjections
+              ? `${formatNumber(values.totalProduction)} Q total · Revenue ${formatCurrency(values.grossRevenue)} · Cost ${formatCurrency(values.totalCost)}`
+              : 'Complete the planning inputs to view projections'}
           </div>
         </div>
 
         <div className="glass-panel stat-card">
           <span className="stat-label">Net Profit / Acre</span>
-          <div className="stat-val" style={{ color: '#38bdf8' }}>
-            ₹{Math.max(0, Math.round(profitPerAcre)).toLocaleString()}
+          <div className="stat-val" style={{ color: hasProjections && values.profitPerAcre < 0 ? '#f87171' : '#38bdf8' }}>
+            {hasProjections ? formatCurrency(values.profitPerAcre) : '—'}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Cost: ₹{costPerAcre.toLocaleString()}/acre
+            {hasProjections ? `Cost: ${formatCurrency(values.costPerAcre)}/acre` : 'Not available'}
           </div>
         </div>
 
         <div className="glass-panel stat-card">
           <span className="stat-label">Return on Investment</span>
           <div className="stat-val" style={{ color: '#fbbf24' }}>
-            {roi}%
+            {hasProjections && values.roi !== null ? `${formatNumber(values.roi, 1)}%` : 'N/A'}
           </div>
-          <span className="badge badge-success" style={{ width: 'fit-content' }}>
-            Healthy ROI
-          </span>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            ROI = profit ÷ total cost
+            <br />
+            Profit margin: {hasProjections ? `${formatNumber(values.profitMargin, 1)}%` : '—'}
+          </div>
         </div>
 
         <div className="glass-panel stat-card">
-          <span className="stat-label">Break-Even Mandi Price</span>
+          <span className="stat-label">Break-Even</span>
           <div className="stat-val" style={{ color: '#a855f7' }}>
-            ₹{breakEvenPrice.toLocaleString()}
+            {hasProjections ? `${formatCurrency(values.breakEvenPrice)}/Q` : '—'}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            per quintal (cost recovery point)
+            {hasProjections ? `${formatNumber(values.breakEvenYield)} Q/acre at entered price` : 'Price / yield needed for cost recovery'}
           </div>
         </div>
       </div>
@@ -146,12 +184,12 @@ const ProfitCalculator = () => {
           <div className="card-title-bar">
             <div className="card-title">
               <Calculator size={20} style={{ color: '#10b981' }} />
-              Production & Market Rates
+              Production & Selling Price
             </div>
-            <span className="badge badge-success">{activeFarm?.name}</span>
+            <span className="badge badge-info">{activeFarm?.farmName || 'Planning assumptions'}</span>
           </div>
 
-          <form onSubmit={handleCalculateServer}>
+          <div>
             <div className="grid-3" style={{ marginBottom: 0, gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Crop Name</label>
@@ -168,33 +206,40 @@ const ProfitCalculator = () => {
                   type="number"
                   step="0.1"
                   className="form-input"
+                  min="0"
+                  required
                   value={inputs.area}
-                  onChange={(e) => setInputs({ ...inputs, area: Number(e.target.value) })}
+                  onChange={(e) => setInputs({ ...inputs, area: e.target.value })}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Exp. Yield (Qt/acre)</label>
+                <label className="form-label">Expected Yield (Qt/acre)</label>
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
                   className="form-input"
+                  required
                   value={inputs.expectedYieldPerAcre}
-                  onChange={(e) => setInputs({ ...inputs, expectedYieldPerAcre: Number(e.target.value) })}
+                  onChange={(e) => setInputs({ ...inputs, expectedYieldPerAcre: e.target.value })}
                 />
               </div>
             </div>
 
             <div className="form-group" style={{ marginTop: '0.5rem' }}>
               <label className="form-label">
-                Expected Selling Price (₹ per Quintal)
-                <span style={{ color: '#34d399', fontWeight: 600 }}>Current Mandi Benchmark: ₹6,500</span>
+                User-Entered Selling Price (₹ per Quintal)
               </label>
               <input
                 type="number"
+                min="0"
+                step="any"
                 className="form-input"
+                required
                 value={inputs.expectedPricePerQuintal}
-                onChange={(e) => setInputs({ ...inputs, expectedPricePerQuintal: Number(e.target.value) })}
+                onChange={(e) => setInputs({ ...inputs, expectedPricePerQuintal: e.target.value })}
               />
+              <small style={{ color: 'var(--text-muted)' }}>This is a planning input, not a live mandi quote.</small>
             </div>
 
             <div style={{ margin: '1.5rem 0 1rem', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
@@ -202,113 +247,77 @@ const ProfitCalculator = () => {
             </div>
 
             <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Labor & Sowing (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.labor}
-                  onChange={(e) => handleCostChange('labor', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Fertilizers & Manure (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.fertilizers}
-                  onChange={(e) => handleCostChange('fertilizers', e.target.value)}
-                />
-              </div>
+              {COST_FIELDS.map(({ key, label }) => (
+                <div className="form-group" key={key}>
+                  <label className="form-label" htmlFor={`profit-cost-${key}`}>{label} — per acre</label>
+                  <input
+                    id={`profit-cost-${key}`}
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="form-input"
+                    required
+                    value={inputs.costs[key]}
+                    onChange={(e) => handleCostChange(key, e.target.value)}
+                  />
+                </div>
+              ))}
             </div>
 
-            <div className="grid-3" style={{ marginBottom: 0, gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Seeds (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.seeds}
-                  onChange={(e) => handleCostChange('seeds', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Machinery/Tractor (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.machinery}
-                  onChange={(e) => handleCostChange('machinery', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Pesticides (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.pesticides}
-                  onChange={(e) => handleCostChange('pesticides', e.target.value)}
-                />
-              </div>
+            <div className="glass-panel" style={{ padding: '1rem', marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+              Editable planning assumptions. Acreage is prefilled from the active farm when available; yield, price, and costs must be entered by you.
             </div>
-
-            <div className="grid-2" style={{ marginBottom: 0, gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Irrigation Power (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.irrigation}
-                  onChange={(e) => handleCostChange('irrigation', e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Other Overheads (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={inputs.costs.other}
-                  onChange={(e) => handleCostChange('other', e.target.value)}
-                />
-              </div>
-            </div>
-          </form>
+          </div>
         </div>
 
         {/* Right: Cost Allocation Visual Chart */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {errors.length > 0 && (
+            <div className="glass-panel" role="alert" style={{ padding: '1.25rem', color: '#f87171' }}>
+              <AlertTriangle size={16} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+              <strong>Complete or correct the planning inputs:</strong>
+              <ul style={{ margin: '0.5rem 0 0 1.5rem' }}>
+                {errors.map((error) => <li key={error}>{error}</li>)}
+              </ul>
+            </div>
+          )}
+
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
             <div className="card-title-bar">
               <div className="card-title">
                 <PieIcon size={18} style={{ color: '#38bdf8' }} />
-                Cost Structure / Acre (₹{costPerAcre.toLocaleString()})
+                Cost Structure / Acre ({hasProjections ? formatCurrency(values.costPerAcre) : '—'})
               </div>
             </div>
 
-            <div style={{ height: 260, width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={expenseData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {expenseData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => `₹${value.toLocaleString()}`}
-                    contentStyle={{ backgroundColor: '#0d171b', borderRadius: 8, borderColor: '#34d399' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {hasProjections ? (
+              <div style={{ height: 260, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={expenseData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {expenseData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => `₹${value.toLocaleString()}`}
+                      contentStyle={{ backgroundColor: '#0d171b', borderRadius: 8, borderColor: '#34d399' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="dashboard-state">Enter valid inputs to view cost allocation.</div>
+            )}
           </div>
 
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
@@ -316,9 +325,15 @@ const ProfitCalculator = () => {
               BREAK-EVEN SENSITIVITY
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              • To cover your direct costs of <strong>₹{costPerAcre.toLocaleString()}/acre</strong>, you need a minimum harvest of <strong>{breakEvenYield} Quintals/acre</strong> at ₹{inputs.expectedPricePerQuintal}/Q.
-              <br />
-              • At expected yield of {inputs.expectedYieldPerAcre} Q/acre, any market price above <strong>₹{breakEvenPrice}/Q</strong> directly delivers net profit.
+              {hasProjections ? (
+                <>
+                  • To cover costs of <strong>{formatCurrency(values.costPerAcre)}/acre</strong>, break-even yield is <strong>{formatNumber(values.breakEvenYield)} Quintals/acre</strong> at {formatCurrency(Number(inputs.expectedPricePerQuintal))}/Q.
+                  <br />
+                  • At expected yield of {formatNumber(Number(inputs.expectedYieldPerAcre))} Q/acre, break-even price is <strong>{formatCurrency(values.breakEvenPrice)}/Q</strong>.
+                </>
+              ) : (
+                'Break-even values will appear after all required inputs are valid.'
+              )}
             </div>
           </div>
         </div>

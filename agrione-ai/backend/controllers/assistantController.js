@@ -1,6 +1,3 @@
-// Rule-based AI assistant with agricultural knowledge
-// Can be upgraded to use Gemini API or any LLM by adding API key
-
 const KNOWLEDGE_BASE = {
   crop_selection: {
     keywords: ['which crop', 'what crop', 'crop suitable', 'best crop', 'grow what', 'recommend crop'],
@@ -38,50 +35,63 @@ const KNOWLEDGE_BASE = {
 
 exports.chat = async (req, res) => {
   try {
-    const { message, farmContext } = req.body;
+    const { message, farmContext } = req.body || {};
 
-    if (!message) {
+    if (typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ success: false, message: 'Please enter a question.' });
     }
 
-    const query = message.toLowerCase();
+    const query = message.trim().toLowerCase();
+    const question = message.trim();
 
-    // Check if LLM API key is available
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${geminiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `You are an agricultural advisor for Indian farmers. Answer the following farming question concisely and helpfully. If farm context is available, use it. Never give dangerous advice. Always suggest consulting local experts for critical decisions.\n\nFarm Context: ${farmContext ? JSON.stringify(farmContext) : 'Not available'}\n\nFarmer's Question: ${message}`
+                  text: `You are an agricultural advisor for Indian farmers. Answer the following farming question concisely and helpfully. If farm context is available, use it. Never give dangerous advice. Always suggest consulting local experts for critical decisions.\n\nFarm Context: ${farmContext ? JSON.stringify(farmContext) : 'Not available'}\n\nFarmer's Question: ${question}`
                 }]
               }]
             })
           }
         );
+
         if (response.ok) {
           const data = await response.json();
-          const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parts = data?.candidates?.[0]?.content?.parts;
+          const aiResponse = Array.isArray(parts)
+            ? parts
+              .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+              .filter(Boolean)
+              .join('\n')
+              .trim()
+            : '';
+
           if (aiResponse) {
             return res.json({
               success: true,
               response: aiResponse,
-              source: 'AI Assistant',
+              source: 'Gemini 3.6 Flash',
               isAI: true,
             });
           }
         }
-      } catch (apiError) {
-        // Fall through to knowledge base
+      } catch {
+        // Use the predefined knowledge base when Gemini is unavailable.
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
-    // Knowledge base lookup
     let bestMatch = null;
     let bestScore = 0;
 
@@ -97,20 +107,23 @@ exports.chat = async (req, res) => {
       return res.json({
         success: true,
         response: bestMatch.response,
-        source: 'Agricultural Knowledge Base',
+        source: 'Predefined Agricultural Knowledge Base',
         isAI: false,
-        note: 'This response is from a built-in knowledge base. Add GEMINI_API_KEY in .env for AI-powered responses.',
+        note: 'This is predefined agricultural guidance, not a Gemini-generated response.',
       });
     }
 
-    // Default response
-    res.json({
+    return res.json({
       success: true,
-      response: `Thank you for your question about "${message}". For detailed guidance, I recommend:\n\n1. Use the specific module related to your question (Crop Recommendation, Soil Intelligence, Disease Detection, etc.)\n2. Consult your local agricultural extension officer\n3. Visit the Government Schemes page for relevant support programs\n\nI can help better if you ask about: crop selection, soil health, irrigation, diseases, fertilizers, government schemes, market prices, or weather.`,
-      source: 'Default Response',
+      response: "I don't have predefined guidance for that question, and Gemini is currently unavailable. Please try asking about crop selection, soil health, irrigation, diseases, fertilizers, government schemes, markets, or weather, or consult a local agricultural expert.",
+      source: 'Unsupported question response',
       isAI: false,
+      note: 'This is a predefined notice, not an AI-generated answer.',
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Assistant service failed.' });
+    return res.status(500).json({ success: false, message: 'Assistant service failed.' });
   }
 };
+
+
+

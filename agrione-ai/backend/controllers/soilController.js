@@ -47,23 +47,6 @@ exports.analyzeSoil = async (req, res) => {
 
   try {
     const factors = [];
-  try {
-    const { soilType } = req.body;
-    const fields = ['pH', 'nitrogen', 'phosphorus', 'potassium', 'moisture'];
-    const invalidField = fields.find((field) => {
-      const value = req.body[field];
-      return value === undefined || value === null || value === '' || !Number.isFinite(Number(value));
-    });
-    if (invalidField) {
-      return res.status(400).json({
-        success: false,
-        message: `A valid numeric value is required for ${invalidField}.`,
-      });
-    }
-
-    const { pH, nitrogen, phosphorus, potassium, moisture } = Object.fromEntries(
-      fields.map((field) => [field, Number(req.body[field])])
-    );
 
     // Soil health analysis
     const health = { score: 0, maxScore: 100, factors: [] };
