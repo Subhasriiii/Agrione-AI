@@ -11,14 +11,12 @@ import {
   Calculator,
   Sliders,
   CloudSun,
-  Store,
   ShoppingBag,
   ClipboardList,
   Landmark,
   BotMessageSquare,
   Sparkles,
   ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -50,7 +48,6 @@ const NAV_GROUPS = [
     title: 'Market & Ecosystem',
     items: [
       { name: 'Weather Forecast', path: '/weather', icon: CloudSun },
-      { name: 'Mandi Rates', path: '/market', icon: Store },
       { name: 'Marketplace', path: '/marketplace', icon: ShoppingBag },
       { name: 'Orders', path: '/orders', icon: ClipboardList },
       { name: 'Govt Schemes', path: '/schemes', icon: Landmark },

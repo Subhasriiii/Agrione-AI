@@ -17,7 +17,6 @@ import YieldAndRisk from './pages/YieldAndRisk';
 import ProfitCalculator from './pages/ProfitCalculator';
 import WhatIfSimulation from './pages/WhatIfSimulation';
 import WeatherAdvisory from './pages/WeatherAdvisory';
-import MarketMandi from './pages/MarketMandi';
 import Marketplace from './pages/Marketplace';
 import Orders from './pages/Orders';
 import GovernmentSchemes from './pages/GovernmentSchemes';
@@ -68,7 +67,6 @@ function App() {
             <Route path="/profit-calculator" element={requireAuth(<ProfitCalculator />)} />
             <Route path="/simulation" element={requireAuth(<WhatIfSimulation />)} />
             <Route path="/weather" element={requireAuth(<WeatherAdvisory />)} />
-            <Route path="/market" element={requireAuth(<MarketMandi />)} />
             <Route path="/marketplace" element={requireAuth(<Marketplace />)} />
             <Route path="/orders" element={requireAuth(<Orders />)} />
             <Route path="/schemes" element={requireAuth(<GovernmentSchemes />)} />
