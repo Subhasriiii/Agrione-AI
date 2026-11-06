@@ -751,3 +751,84 @@ export const translations = {
     'Email Seller': 'ಮಾರಾಟಗಾರರಿಗೆ ಇಮೇಲ್ ಮಾಡಿ',
   },
 };
+
+const dashboardTranslations = {
+  'Please sign in to view your farm dashboard': {
+    en: 'Please sign in to view your farm dashboard',
+    te: 'మీ పొలం డాష్‌బోర్డ్‌ను చూడటానికి సైన్ ఇన్ చేయండి',
+  },
+  'Your personalized soil, crop, and farm data will appear after login.': {
+    en: 'Your personalized soil, crop, and farm data will appear after login.',
+    te: 'లాగిన్ అయిన తర్వాత మీ నేల, పంట మరియు పొలం సమాచారం కనిపిస్తుంది.',
+  },
+  'Welcome back,': { en: 'Welcome back,', te: 'తిరిగి స్వాగతం,' },
+  Farmer: { en: 'Farmer', te: 'రైతు' },
+  'No farm registered yet. Add your first farm to get started.': {
+    en: 'No farm registered yet. Add your first farm to get started.',
+    te: 'ఇంకా పొలం నమోదు కాలేదు. ప్రారంభించడానికి మీ మొదటి పొలాన్ని జోడించండి.',
+  },
+  'Open unread notifications': { en: 'Open unread notifications', te: 'చదవని నోటిఫికేషన్లను తెరవండి' },
+  'Loading alerts...': { en: 'Loading alerts...', te: 'హెచ్చరికలు లోడ్ అవుతున్నాయి...' },
+  'Active Warnings': { en: 'Active Warnings', te: 'క్రియాశీల హెచ్చరికలు' },
+  'Unable to load farm data:': { en: 'Unable to load farm data:', te: 'పొలం సమాచారాన్ని లోడ్ చేయలేకపోయాము:' },
+  'Unable to load notifications:': { en: 'Unable to load notifications:', te: 'నోటిఫికేషన్లను లోడ్ చేయలేకపోయాము:' },
+  Retry: { en: 'Retry', te: 'మళ్లీ ప్రయత్నించండి' },
+  'Loading farm data...': { en: 'Loading farm data...', te: 'పొలం సమాచారం లోడ్ అవుతోంది...' },
+  'No farm registered yet.': { en: 'No farm registered yet.', te: 'ఇంకా పొలం నమోదు కాలేదు.' },
+  'Add your first farm to get started.': { en: 'Add your first farm to get started.', te: 'ప్రారంభించడానికి మీ మొదటి పొలాన్ని జోడించండి.' },
+  'Add New Farm': { en: 'Add New Farm', te: 'కొత్త పొలాన్ని జోడించండి' },
+  'Active Acreage': { en: 'Active Acreage', te: 'క్రియాశీల విస్తీర్ణం' },
+  Acres: { en: 'Acres', te: 'ఎకరాలు' },
+  'Soil Measurements': { en: 'Soil Measurements', te: 'నేల కొలతలు' },
+  'View Full Soil Report': { en: 'View Full Soil Report', te: 'పూర్తి నేల నివేదికను చూడండి' },
+  'Weather condition unavailable': { en: 'Weather condition unavailable', te: 'వాతావరణ పరిస్థితి అందుబాటులో లేదు' },
+  'Your farm at a glance': { en: 'Your farm at a glance', te: 'మీ పొలం ఒక చూపులో' },
+  'Active farm': { en: 'Active farm', te: 'క్రియాశీల పొలం' },
+  'Get crop recommendations': { en: 'Get crop recommendations', te: 'పంట సిఫార్సులు పొందండి' },
+  'Farm overview': { en: 'Farm overview', te: 'పొలం అవలోకనం' },
+  'Current crop': { en: 'Current crop', te: 'ప్రస్తుత పంట' },
+  'Recorded readings from your active farm': { en: 'Recorded readings from your active farm', te: 'మీ క్రియాశీల పొలం నుండి నమోదైన కొలతలు' },
+  'No valid recorded soil measurements are available for this farm.': {
+    en: 'No valid recorded soil measurements are available for this farm.',
+    te: 'ఈ పొలానికి చెల్లుబాటు అయ్యే నమోదైన నేల కొలతలు అందుబాటులో లేవు.',
+  },
+  'Add soil measurements': { en: 'Add soil measurements', te: 'నేల కొలతలను జోడించండి' },
+  'Weather overview': { en: 'Weather overview', te: 'వాతావరణ అవలోకనం' },
+  'Farm location not set': { en: 'Farm location not set', te: 'పొలం ప్రదేశం సెట్ చేయలేదు' },
+  'Open weather forecast': { en: 'Open weather forecast', te: 'వాతావరణ సూచనను తెరవండి' },
+  'Loading weather...': { en: 'Loading weather...', te: 'వాతావరణం లోడ్ అవుతోంది...' },
+  'Live weather data is unavailable.': { en: 'Live weather data is unavailable.', te: 'ప్రత్యక్ష వాతావరణ సమాచారం అందుబాటులో లేదు.' },
+  'Unable to load weather data.': { en: 'Unable to load weather data.', te: 'వాతావరణ సమాచారాన్ని లోడ్ చేయలేకపోయాము.' },
+  Humidity: { en: 'Humidity', te: 'తేమ' },
+  Wind: { en: 'Wind', te: 'గాలి' },
+  'Live weather': { en: 'Live weather', te: 'ప్రత్యక్ష వాతావరణం' },
+  'Weather is shown when live data is available for your farm location.': {
+    en: 'Weather is shown when live data is available for your farm location.',
+    te: 'మీ పొలం ప్రదేశానికి ప్రత్యక్ష సమాచారం అందుబాటులో ఉన్నప్పుడు వాతావరణం చూపబడుతుంది.',
+  },
+  'Recent farm alerts': { en: 'Recent farm alerts', te: 'ఇటీవలి పొలం హెచ్చరికలు' },
+  'Updates from your farm notifications': { en: 'Updates from your farm notifications', te: 'మీ పొలం నోటిఫికేషన్ల నుండి తాజా సమాచారం' },
+  'Loading notifications...': { en: 'Loading notifications...', te: 'నోటిఫికేషన్లు లోడ్ అవుతున్నాయి...' },
+  'View all notifications': { en: 'View all notifications', te: 'అన్ని నోటిఫికేషన్లను చూడండి' },
+  'No recent farm alerts.': { en: 'No recent farm alerts.', te: 'ఇటీవలి పొలం హెచ్చరికలు లేవు.' },
+  'Open notifications': { en: 'Open notifications', te: 'నోటిఫికేషన్లను తెరవండి' },
+  'Plan your next crop with farm-specific insights': {
+    en: 'Plan your next crop with farm-specific insights',
+    te: 'మీ పొలానికి సంబంధించిన సూచనలతో తదుపరి పంటను ప్లాన్ చేయండి',
+  },
+  'Explore recommendations using your recorded soil and farm conditions.': {
+    en: 'Explore recommendations using your recorded soil and farm conditions.',
+    te: 'నమోదైన నేల మరియు పొలం పరిస్థితుల ఆధారంగా సిఫార్సులను చూడండి.',
+  },
+  'Explore crops': { en: 'Explore crops', te: 'పంటలను చూడండి' },
+  'Farm tools': { en: 'Farm tools', te: 'వ్యవసాయ సాధనాలు' },
+  'Quick access': { en: 'Quick access', te: 'త్వరిత ప్రాప్యత' },
+  'Crop Recommendation': { en: 'Crop Recommendation', te: 'పంట సిఫార్సు' },
+  'Soil Intelligence': { en: 'Soil Intelligence', te: 'నేల విశ్లేషణ' },
+};
+
+Object.entries(dashboardTranslations).forEach(([source, localized]) => {
+  Object.entries(localized).forEach(([language, translation]) => {
+    translations[language][source] = translation;
+  });
+});
