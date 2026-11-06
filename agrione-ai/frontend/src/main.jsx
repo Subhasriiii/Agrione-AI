@@ -1,4 +1,4 @@
-import React, { StrictMode } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
@@ -9,24 +9,27 @@ import './App.css';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext';
 import { FarmProvider } from './context/FarmContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <FarmProvider>
-          <App />
-          <ToastContainer
-            theme="dark"
-            position="bottom-right"
-            autoClose={3500}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            pauseOnHover
-          />
-        </FarmProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <FarmProvider>
+            <App />
+            <ToastContainer
+              theme="dark"
+              position="bottom-right"
+              autoClose={3500}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              pauseOnHover
+            />
+          </FarmProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   </StrictMode>
 );

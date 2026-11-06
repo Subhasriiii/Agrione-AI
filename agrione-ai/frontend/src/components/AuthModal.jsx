@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { X } from 'lucide-react';
+import LanguageSelector from './LanguageSelector';
 
 const AuthModal = ({ isOpen, onClose, fullScreen = false }) => {
   const { login, register } = useAuth();
@@ -84,6 +85,9 @@ const AuthModal = ({ isOpen, onClose, fullScreen = false }) => {
         </div>
 
         <div className="auth-form-panel">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+            <LanguageSelector />
+          </div>
           <div className="modal-header">
             <div>
               <h3 style={{ fontSize: '1.25rem', color: '#0f172a' }}>

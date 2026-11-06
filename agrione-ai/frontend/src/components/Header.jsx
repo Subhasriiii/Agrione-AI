@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react';
+import LanguageSelector from './LanguageSelector';
 
 const Header = ({ onOpenAuth, onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -161,6 +162,8 @@ const Header = ({ onOpenAuth, onToggleSidebar }) => {
       </div>
 
       <div className="header-right">
+        <LanguageSelector />
+
         {/* Notification Bell */}
         <button
           onClick={() => setShowNotificationDrawer(true)}
