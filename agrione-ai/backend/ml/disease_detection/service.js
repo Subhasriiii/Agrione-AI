@@ -1,9 +1,12 @@
+
 /**
  * Disease Detection Service
  *
- * This module provides a clear integration point for a real vision model.
- * At the moment, no trained classifier is deployed in this repository,
- * so predictions are intentionally withheld rather than fabricated.
+ * Connects AgriOne AI to the trained MobileNetV3-Small
+ * disease detection model hosted on Hugging Face Spaces.
+ *
+ * Environmental disease risk estimation remains separate
+ * from image-based disease detection.
  */
 
 const DISEASE_DATABASE = {
@@ -36,8 +39,10 @@ const DISEASE_DATABASE = {
 };
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const INFERENCE_TIMEOUT_MS = 15000;
-const DEFAULT_INFERENCE_URL = 'http://127.0.0.1:8001/predict';
+const HF_SPACE_ID = 'Subhasri999/agrione-disease-api';
+const INFERENCE_TIMEOUT_MS = 120000;
+const MIN_CONFIDENCE = 0.70;
+
 const IMAGE_CONTENT_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -45,58 +50,117 @@ const IMAGE_CONTENT_TYPES = new Set([
   'image/webp',
 ]);
 
-function isPredictionResponse(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  if (
-    value.success !== true ||
-    (value.predicted_class !== null && typeof value.predicted_class !== 'string') ||
-    (value.disease_name !== null && typeof value.disease_name !== 'string') ||
-    (value.crop !== null && typeof value.crop !== 'string') ||
-    typeof value.confidence !== 'number' ||
-    !Number.isFinite(value.confidence) ||
-    value.confidence < 0 ||
-    value.confidence > 1 ||
-    typeof value.model_version !== 'string' ||
-    typeof value.model_status !== 'string' ||
-    !Array.isArray(value.top_predictions) ||
-    value.top_predictions.length < 1 ||
-    value.top_predictions.length > 3 ||
-    typeof value.disclaimer !== 'string'
-  ) {
-    return false;
+let gradioModulePromise;
+let gradioClientPromise;
+
+/**
+ * Connect to the Hugging Face Gradio Space.
+ * Reuse the client instead of reconnecting for every image.
+ */
+async function getGradioClient() {
+  if (!gradioModulePromise) {
+    gradioModulePromise = import('@gradio/client');
   }
-  return value.top_predictions.every((prediction) => (
-    prediction &&
-    typeof prediction === 'object' &&
-    typeof prediction.class === 'string' &&
-    typeof prediction.disease_name === 'string' &&
-    typeof prediction.crop === 'string' &&
-    typeof prediction.confidence === 'number' &&
-    Number.isFinite(prediction.confidence) &&
-    prediction.confidence >= 0 &&
-    prediction.confidence <= 1
-  ));
+
+  const gradio = await gradioModulePromise;
+
+  if (!gradioClientPromise) {
+    gradioClientPromise = gradio.Client.connect(HF_SPACE_ID).catch((error) => {
+      gradioClientPromise = null;
+      throw error;
+    });
+  }
+
+  return {
+    client: await gradioClientPromise,
+    handle_file: gradio.handle_file,
+  };
 }
 
+/**
+ * Convert Gradio label output into a consistent prediction array.
+ */
+function extractPredictions(labelOutput, cropName) {
+  let entries = [];
+
+  if (Array.isArray(labelOutput?.confidences)) {
+    entries = labelOutput.confidences;
+  } else if (Array.isArray(labelOutput)) {
+    entries = labelOutput;
+  } else if (
+    labelOutput &&
+    typeof labelOutput === 'object' &&
+    typeof labelOutput.label === 'string'
+  ) {
+    entries = labelOutput.confidences || [
+      {
+        label: labelOutput.label,
+        confidence: labelOutput.confidence,
+      },
+    ];
+  } else if (
+    labelOutput &&
+    typeof labelOutput === 'object'
+  ) {
+    entries = Object.entries(labelOutput).map(([label, confidence]) => ({
+      label,
+      confidence,
+    }));
+  }
+
+  return entries
+    .map((item) => {
+      const label = typeof item.label === 'string' ? item.label : '';
+      const confidence = Number(item.confidence);
+
+      const match = label.match(/^(.*?)\s+\((.*?)\)$/);
+
+      return {
+        class: match ? match[1].trim() : label,
+        disease_name: match ? match[1].trim() : label,
+        crop: match ? match[2].trim() : (cropName || 'Unknown'),
+        confidence,
+      };
+    })
+    .filter((item) => (
+      item.class &&
+      Number.isFinite(item.confidence) &&
+      item.confidence >= 0 &&
+      item.confidence <= 1
+    ))
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 3);
+}
+
+/**
+ * Analyze an uploaded plant image using the Hugging Face model.
+ */
 async function analyzeImage(cropName, uploadedFile) {
-  if (!uploadedFile || typeof uploadedFile.path !== 'string' || !uploadedFile.path) {
+  if (
+    !uploadedFile ||
+    typeof uploadedFile.path !== 'string' ||
+    !uploadedFile.path
+  ) {
     throw new TypeError('An uploaded image file with a disk path is required.');
   }
 
   const { stat, readFile } = require('fs/promises');
-  const path = require('path');
+
   let fileInfo;
+
   try {
     fileInfo = await stat(uploadedFile.path);
   } catch (error) {
-    throw new Error(`Could not access uploaded image: ${error.message}`, { cause: error });
+    throw new Error(
+      `Could not access uploaded image: ${error.message}`,
+      { cause: error }
+    );
   }
-  if (!fileInfo.isFile()) {
-    throw new TypeError('Uploaded image path does not reference a file.');
+
+  if (!fileInfo.isFile() || fileInfo.size === 0) {
+    throw new TypeError('Uploaded image is empty or invalid.');
   }
-  if (fileInfo.size === 0) {
-    throw new TypeError('Uploaded image is empty.');
-  }
+
   if (fileInfo.size > MAX_IMAGE_BYTES) {
     throw new RangeError('Uploaded image exceeds the 5 MB limit.');
   }
@@ -104,84 +168,92 @@ async function analyzeImage(cropName, uploadedFile) {
   const contentType = typeof uploadedFile.mimetype === 'string'
     ? uploadedFile.mimetype.toLowerCase()
     : '';
-  if (!IMAGE_CONTENT_TYPES.has(contentType)) {
-    throw new TypeError('Unsupported image type. Use JPEG, PNG, GIF, or WebP.');
-  }
 
-  let image;
-  try {
-    image = await readFile(uploadedFile.path);
-  } catch (error) {
-    throw new Error(`Could not read uploaded image: ${error.message}`, { cause: error });
-  }
-  if (image.length === 0 || image.length > MAX_IMAGE_BYTES) {
-    throw new RangeError(
-      image.length === 0
-        ? 'Uploaded image is empty.'
-        : 'Uploaded image exceeds the 5 MB limit.'
+  if (!IMAGE_CONTENT_TYPES.has(contentType)) {
+    throw new TypeError(
+      'Unsupported image type. Use JPEG, PNG, GIF, or WebP.'
     );
   }
 
-  const formData = new FormData();
-  formData.append(
-    'file',
-    new Blob([image], { type: contentType }),
-    path.basename(uploadedFile.originalname || uploadedFile.path)
+  let image;
+
+  try {
+    image = await readFile(uploadedFile.path);
+  } catch (error) {
+    throw new Error(
+      `Could not read uploaded image: ${error.message}`,
+      { cause: error }
+    );
+  }
+
+  if (!image.length || image.length > MAX_IMAGE_BYTES) {
+    throw new RangeError('Uploaded image is empty or exceeds the 5 MB limit.');
+  }
+
+  let result;
+
+  try {
+    const { client, handle_file } = await getGradioClient();
+
+    const predictionPromise = client.predict('/predict', [
+      handle_file(image),
+    ]);
+
+    let timeoutId;
+
+    try {
+      result = await Promise.race([
+        predictionPromise,
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(
+              new Error(
+                `Disease inference timed out after ${INFERENCE_TIMEOUT_MS} ms.`
+              )
+            );
+          }, INFERENCE_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    throw new Error(
+      `Could not get a prediction from Hugging Face: ${error.message}`,
+      { cause: error }
+    );
+  }
+
+  if (!Array.isArray(result?.data) || result.data.length < 3) {
+    throw new Error('Hugging Face returned an unexpected response.');
+  }
+
+  const topPredictions = extractPredictions(
+    result.data[1],
+    cropName
   );
 
-  const inferenceUrl = process.env.DISEASE_INFERENCE_URL || DEFAULT_INFERENCE_URL;
-  let response;
-  try {
-    response = await fetch(inferenceUrl, {
-      method: 'POST',
-      body: formData,
-      signal: AbortSignal.timeout(INFERENCE_TIMEOUT_MS),
-    });
-  } catch (error) {
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-      throw new Error(`Disease inference request timed out after ${INFERENCE_TIMEOUT_MS} ms.`, { cause: error });
-    }
-    throw new Error(`Could not reach the disease inference API: ${error.message}`, { cause: error });
+  if (topPredictions.length === 0) {
+    throw new Error(
+      'Hugging Face returned no valid disease predictions.'
+    );
   }
 
-  let responseBody;
-  try {
-    responseBody = await response.text();
-  } catch (error) {
-    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-      throw new Error(`Disease inference request timed out after ${INFERENCE_TIMEOUT_MS} ms.`, { cause: error });
-    }
-    throw new Error(`Could not read the disease inference response: ${error.message}`, { cause: error });
-  }
-  let result;
-  try {
-    result = JSON.parse(responseBody);
-  } catch (error) {
-    if (!response.ok) {
-      const detail = responseBody ? `: ${responseBody.slice(0, 500)}` : '';
-      throw new Error(`Disease inference API returned HTTP ${response.status}${detail}`);
-    }
-    throw new Error('Disease inference API returned invalid JSON.', { cause: error });
-  }
-
-  if (!response.ok) {
-    const detail = typeof result?.detail === 'string' ? `: ${result.detail}` : '';
-    throw new Error(`Disease inference API returned HTTP ${response.status}${detail}`);
-  }
-  if (!isPredictionResponse(result)) {
-    throw new Error('Disease inference API returned an invalid prediction response.');
-  }
+  const best = topPredictions[0];
+  const accepted = best.confidence >= MIN_CONFIDENCE;
 
   return {
-    success: result.success,
-    predicted_class: result.predicted_class,
-    disease_name: result.disease_name,
-    crop: result.crop,
-    confidence: result.confidence,
-    model_version: result.model_version,
-    model_status: result.model_status,
-    top_predictions: result.top_predictions,
-    disclaimer: result.disclaimer,
+    success: true,
+    predicted_class: accepted ? best.class : null,
+    disease_name: accepted ? best.disease_name : null,
+    crop: accepted ? best.crop : null,
+    confidence: best.confidence,
+    model_version: 'V1',
+    model_status: accepted ? 'predicted' : 'uncertain',
+    top_predictions: topPredictions,
+    disclaimer: typeof result.data[2] === 'string'
+      ? result.data[2]
+      : 'This is an AI prediction, not a confirmed plant disease diagnosis. The confidence score is not a guarantee of accuracy.',
   };
 }
 
@@ -195,18 +267,34 @@ function calculateDiseaseRisk(inputs) {
   const factors = [];
 
   // High humidity increases fungal disease risk
-  if (humidity > 80) { riskScore += 25; factors.push('High humidity (>80%) increases fungal disease risk'); }
-  else if (humidity > 65) { riskScore += 10; factors.push('Moderate humidity may support disease spread'); }
+  if (humidity > 80) {
+    riskScore += 25;
+    factors.push('High humidity (>80%) increases fungal disease risk');
+  } else if (humidity > 65) {
+    riskScore += 10;
+    factors.push('Moderate humidity may support disease spread');
+  }
 
   // High temperature with high humidity
-  if (temperature > 30 && humidity > 70) { riskScore += 20; factors.push('Warm and humid conditions favor disease development'); }
+  if (temperature > 30 && humidity > 70) {
+    riskScore += 20;
+    factors.push('Warm and humid conditions favor disease development');
+  }
 
   // Excessive rainfall
-  if (rainfall > 100) { riskScore += 20; factors.push('Heavy rainfall may cause waterlogging and root diseases'); }
-  else if (rainfall > 60) { riskScore += 10; factors.push('Moderate rainfall may contribute to moisture-related diseases'); }
+  if (rainfall > 100) {
+    riskScore += 20;
+    factors.push('Heavy rainfall may cause waterlogging and root diseases');
+  } else if (rainfall > 60) {
+    riskScore += 10;
+    factors.push('Moderate rainfall may contribute to moisture-related diseases');
+  }
 
   // High soil moisture
-  if (soilMoisture > 80) { riskScore += 15; factors.push('Saturated soil increases root rot risk'); }
+  if (soilMoisture > 80) {
+    riskScore += 15;
+    factors.push('Saturated soil increases root rot risk');
+  }
 
   // Growth stage risk
   if (growthStage === 'flowering' || growthStage === 'fruiting') {
@@ -215,10 +303,15 @@ function calculateDiseaseRisk(inputs) {
   }
 
   let riskLevel = 'low';
-  if (riskScore >= 50) riskLevel = 'high';
-  else if (riskScore >= 25) riskLevel = 'medium';
+
+  if (riskScore >= 50) {
+    riskLevel = 'high';
+  } else if (riskScore >= 25) {
+    riskLevel = 'medium';
+  }
 
   const suggestions = [];
+
   if (riskLevel === 'high') {
     suggestions.push('Inspect crops daily for disease symptoms');
     suggestions.push('Consider preventive fungicide application');
@@ -233,7 +326,7 @@ function calculateDiseaseRisk(inputs) {
   }
 
   const cropDiseases = DISEASE_DATABASE[crop?.toLowerCase()] || [];
-  const commonThreats = cropDiseases.map(d => d.name);
+  const commonThreats = cropDiseases.map((d) => d.name);
 
   return {
     riskLevel,
@@ -245,4 +338,8 @@ function calculateDiseaseRisk(inputs) {
   };
 }
 
-module.exports = { analyzeImage, calculateDiseaseRisk, DISEASE_DATABASE };
+module.exports = {
+  analyzeImage,
+  calculateDiseaseRisk,
+  DISEASE_DATABASE,
+};

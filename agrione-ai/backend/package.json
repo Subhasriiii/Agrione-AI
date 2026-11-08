@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "AgriOne AI Backend",
   "dependencies": {
+    "@gradio/client": "^2.7.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
