@@ -65,11 +65,13 @@ async function getGradioClient() {
   const gradio = await gradioModulePromise;
 
   if (!gradioClientPromise) {
-    gradioClientPromise = gradio.Client.connect(HF_SPACE_ID).catch((error) => {
-      gradioClientPromise = null;
-      throw error;
-    });
-  }
+  gradioClientPromise = gradio.Client.connect(HF_SPACE_ID, {
+    token: process.env.HF_TOKEN,
+  }).catch((error) => {
+    gradioClientPromise = null;
+    throw error;
+  });
+}
 
   return {
     client: await gradioClientPromise,
