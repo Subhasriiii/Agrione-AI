@@ -41,7 +41,7 @@ exports.getRecommendation = async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(modelInputs),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(120000),
     });
   } catch (error) {
     return res.status(503).json({
