@@ -195,9 +195,13 @@ async function analyzeImage(cropName, uploadedFile) {
   try {
     const { client, handle_file } = await getGradioClient();
 
-    const predictionPromise = client.predict('/predict', [
-      handle_file(image),
-    ]);
+    const imageBlob = new Blob([image], {
+  type: contentType,
+});
+
+const predictionPromise = client.predict('/predict', {
+  image: handle_file(imageBlob),
+});
 
     let timeoutId;
 
