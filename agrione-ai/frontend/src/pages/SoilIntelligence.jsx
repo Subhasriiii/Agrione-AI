@@ -180,8 +180,7 @@ const SoilIntelligenceView = ({ activeFarm, updateSoil }) => {
     setOcrLoading(true);
     try {
       const formData = new FormData();
-      const preparedImage = await preprocessSoilReport(selectedFile);
-      formData.append('soilReport', preparedImage, 'soil-report.png');
+      formData.append('soilReport', selectedFile);
 
       const res = await soilApi.extractOCR(formData);
       if (res?.extractedValues) {
@@ -198,13 +197,14 @@ const SoilIntelligenceView = ({ activeFarm, updateSoil }) => {
           return;
         }
         setSoilInputs((prev) => ({
-          ...prev,
-          nitrogen: extracted.nitrogen ?? prev.nitrogen,
-          phosphorus: extracted.phosphorus ?? prev.phosphorus,
-          potassium: extracted.potassium ?? prev.potassium,
-          ph: extracted.ph ?? prev.ph,
-          organicCarbon: extracted.organicCarbon ?? prev.organicCarbon,
-        }));
+  ...prev,
+  nitrogen: extracted.nitrogen ?? '',
+  phosphorus: extracted.phosphorus ?? '',
+  potassium: extracted.potassium ?? '',
+  ph: extracted.ph ?? '',
+  organicCarbon: extracted.organicCarbon ?? '',
+  moisture: '',
+}));
         setAnalysisResult(null);
         setActiveTab('manual');
       } else {
